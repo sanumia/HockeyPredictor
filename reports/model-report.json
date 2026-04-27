@@ -6,27 +6,27 @@
     "test": 30
   },
   "classification": {
-    "accuracy": 0.4,
-    "logLoss": 0.7944,
+    "accuracy": 0.6333,
+    "logLoss": 0.6644,
     "confusionMatrix": [
       [
-        12,
+        19,
         0
       ],
       [
-        18,
+        11,
         0
       ]
     ]
   },
   "goalsRegression": {
     "homeGoals": {
-      "mae": 3.6167,
-      "rmse": 3.7017
+      "mae": 3.2833,
+      "rmse": 3.4355
     },
     "awayGoals": {
-      "mae": 2.5167,
-      "rmse": 2.7165
+      "mae": 9.1,
+      "rmse": 9.1706
     }
   },
   "artifacts": {
