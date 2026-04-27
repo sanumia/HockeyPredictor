@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HockeyPredictor Визуальный отчет</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #0f172a; color: #e2e8f0; }
+    h1, h2 { margin: 8px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 12px; }
+    .wide { grid-column: span 2; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .stat-box { background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
+    .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #f8fafc; }
+    .formula { margin: 8px 0; background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
+    .formula code { color: #e2e8f0; font-size: 14px; }
+    #metricsTable table { width: 100%; border-collapse: collapse; }
+    #metricsTable th, #metricsTable td { border: 1px solid #243042; padding: 8px; text-align: left; }
+    #metricsTable th { background: #0b1220; }
+  </style>
+</head>
+<body>
+  <h1>HockeyPredictor: Визуальный отчет</h1>
+  <p>EDA-анализ, фокус на Динамо Минск, метрики моделей.</p>
+
+  <div class="grid">
+    <div class="card wide">
+      <h2>Динамо Минск: ключевая статистика</h2>
+      <div id="dinamoSummary" class="stats-grid"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Формулы расчета</h2>
+      <div class="formula">
+        <div><b>Коэффициент корреляции Пирсона:</b></div>
+        <code>r = Σ((xᵢ - x̄)(yᵢ - ȳ)) / √(Σ(xᵢ - x̄)² Σ(yᵢ - ȳ)²)</code>
+      </div>
+      <div class="formula">
+        <div><b>Логистическая регрессия (вероятность победы хозяев):</b></div>
+        <code>p(homeWin=1|x) = 1 / (1 + e^(-(β₀ + β₁x₁ + ... + βₖxₖ)))</code>
+      </div>
+      <div class="formula">
+        <div><b>Пуассоновская модель голов:</b></div>
+        <code>λ(x) = exp(β₀ + β₁x₁ + ... + βₖxₖ),  P(Y=y) = e^-λ * λʸ / y!</code>
+      </div>
+      <div class="formula">
+        <div><b>Метрики:</b></div>
+        <code>Accuracy = (TP+TN)/N, LogLoss = -(1/N)Σ[y log(p)+(1-y) log(1-p)], RMSE = √((1/N)Σ(y-ŷ)²)</code>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h2>Тепловая карта корреляций</h2>
+      <div id="corr" style="height: 520px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Распределение голов</h2>
+      <div id="goalsDist" style="height: 360px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Распределение разницы голов</h2>
+      <div id="goalDiffDist" style="height: 360px;"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Динамика формы команд (средние очки за 5 матчей)</h2>
+      <div id="teamForm" style="height: 420px;"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Динамо Минск: голы по матчам</h2>
+      <div id="dinamoGoals" style="height: 360px;"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Метрики моделей</h2>
+      <div id="metricsTable"></div>
+    </div>
+  </div>
+
+  <script>
+    const corrFeatures = ["restDaysHome","restDaysAway","formLast5Home","formLast5Away","shotsForAvgHome","shotsForAvgAway","shotsAgainstAvgHome","shotsAgainstAvgAway","faceoffPctHome","faceoffPctAway","ppPctHome","ppPctAway","goalieSvPctHome","goalieSvPctAway","homeGoals","awayGoals","homeWin"];
+    const corrLabelsRu = ["Дни отдыха (хозяева)","Дни отдыха (гости)","Форма за 5 матчей (хозяева)","Форма за 5 матчей (гости)","Броски в створ, ср. (хозяева)","Броски в створ, ср. (гости)","Броски против, ср. (хозяева)","Броски против, ср. (гости)","Вбрасывания %, ср. (хозяева)","Вбрасывания %, ср. (гости)","Большинство %, ср. (хозяева)","Большинство %, ср. (гости)","Сэйвы вратаря %, ср. (хозяева)","Сэйвы вратаря %, ср. (гости)","Голы хозяев","Голы гостей","Победа хозяев"];
+    const corrZ = [[1,-0.2989,-0.3407,-0.134,-0.2477,-0.0538,0.1953,-0.0192,-0.1244,-0.0563,-0.1337,0.0459,-0.0668,0.0142,0.1086,-0.0338,0.1108],[-0.2989,1,0.1796,-0.1141,0.1313,-0.1495,-0.1488,0.0919,0.0368,-0.133,0.0973,-0.0138,0.0475,-0.0737,-0.0586,0.0399,0.0068],[-0.3407,0.1796,1,0.2947,0.1803,0.0629,-0.1277,-0.0872,0.0893,0.1177,0.0631,-0.0002,0.195,-0.0166,-0.0824,-0.0456,-0.0192],[-0.134,-0.1141,0.2947,1,0.0939,0.3223,-0.1029,-0.3066,0.1412,0.0893,-0.0487,0.0848,0.0189,0.1645,-0.1532,-0.0236,-0.1212],[-0.2477,0.1313,0.1803,0.0939,1,0.2807,-0.0495,0.0542,-0.0066,0.1683,0.2639,-0.0219,-0.0657,0.0201,-0.0076,0.1414,-0.0687],[-0.0538,-0.1495,0.0629,0.3223,0.2807,1,0.1764,-0.2126,-0.0297,0.225,0.0412,-0.071,-0.1698,0.1015,-0.0787,-0.0677,-0.0051],[0.1953,-0.1488,-0.1277,-0.1029,-0.0495,0.1764,1,0.0189,-0.1842,0.0081,0.0619,0.0112,-0.3028,0.0539,0.1487,0.0458,0.0132],[-0.0192,0.0919,-0.0872,-0.3066,0.0542,-0.2126,0.0189,1,-0.0859,0.1739,0.0432,0.0171,0.0152,-0.0117,-0.0215,0.138,-0.032],[-0.1244,0.0368,0.0893,0.1412,-0.0066,-0.0297,-0.1842,-0.0859,1,-0.0536,-0.0911,0.1962,0.2474,0.0777,0.0914,0.1213,0.0088],[-0.0563,-0.133,0.1177,0.0893,0.1683,0.225,0.0081,0.1739,-0.0536,1,0.0238,-0.0663,0.0268,0.0796,-0.1265,-0.0447,0.028],[-0.1337,0.0973,0.0631,-0.0487,0.2639,0.0412,0.0619,0.0432,-0.0911,0.0238,1,0.0128,0.0595,0.0239,-0.0294,0.0616,-0.0573],[0.0459,-0.0138,-0.0002,0.0848,-0.0219,-0.071,0.0112,0.0171,0.1962,-0.0663,0.0128,1,0.0503,-0.051,0.0634,0.0484,-0.0359],[-0.0668,0.0475,0.195,0.0189,-0.0657,-0.1698,-0.3028,0.0152,0.2474,0.0268,0.0595,0.0503,1,0.0017,-0.1101,-0.1411,0.1054],[0.0142,-0.0737,-0.0166,0.1645,0.0201,0.1015,0.0539,-0.0117,0.0777,0.0796,0.0239,-0.051,0.0017,1,-0.0433,0.0438,-0.0274],[0.1086,-0.0586,-0.0824,-0.1532,-0.0076,-0.0787,0.1487,-0.0215,0.0914,-0.1265,-0.0294,0.0634,-0.1101,-0.0433,1,0.0825,0.5501],[-0.0338,0.0399,-0.0456,-0.0236,0.1414,-0.0677,0.0458,0.138,0.1213,-0.0447,0.0616,0.0484,-0.1411,0.0438,0.0825,1,-0.5759],[0.1108,0.0068,-0.0192,-0.1212,-0.0687,-0.0051,0.0132,-0.032,0.0088,0.028,-0.0573,-0.0359,0.1054,-0.0274,0.5501,-0.5759,1]];
+    const homeGoals = [2,5,4,4,3,2,3,3,5,5,5,5,3,2,3,4,2,2,4,3,4,4,4,4,4,2,2,4,4,2,3,5,2,3,4,4,3,5,4,3,4,3,3,3,3,4,3,5,4,5,3,2,5,5,4,4,3,4,2,4,2,2,2,2,2,4,2,4,5,5,2,5,4,3,5,2,3,4,3,5,3,4,2,3,5,3,3,5,2,4,5,4,5,5,3,3,4,3,4,3,3,5,4,3,3,2,3,3,2,4,5,5,2,2,3,2,2,4,4,4,3,4,4,2,5,3,4,3,5,3,5,4,4,4,4,2,4,3,4,3,4,3,4,4,5,4,4,3,3,3];
+    const awayGoals = [2,3,2,4,3,2,2,3,3,3,3,3,4,2,2,1,1,1,3,3,2,2,4,4,2,3,2,2,2,1,1,2,2,2,1,3,1,1,3,3,4,1,1,1,1,4,1,2,3,2,2,3,3,1,1,3,2,1,3,2,2,3,2,3,3,1,2,4,2,1,3,1,4,3,4,4,1,2,1,3,2,3,2,2,3,3,4,4,2,3,2,3,2,2,4,1,4,3,3,4,2,3,4,3,1,1,1,2,2,2,1,3,4,2,2,4,3,2,4,4,4,3,4,2,3,3,1,2,2,3,4,2,3,2,3,3,4,3,2,3,4,4,2,1,3,1,1,3,1,1];
+    const goalDiff = [0,2,2,0,0,0,1,0,2,2,2,2,-1,0,1,3,1,1,1,0,2,2,0,0,2,-1,0,2,2,1,2,3,0,1,3,1,2,4,1,0,0,2,2,2,2,0,2,3,1,3,1,-1,2,4,3,1,1,3,-1,2,0,-1,0,-1,-1,3,0,0,3,4,-1,4,0,0,1,-2,2,2,2,2,1,1,0,1,2,0,-1,1,0,1,3,1,3,3,-1,2,0,0,1,-1,1,2,0,0,2,1,2,1,0,2,4,2,-2,0,1,-2,-1,2,0,0,-1,1,0,0,2,0,3,1,3,0,1,2,1,2,1,-1,0,0,2,0,0,-1,2,3,2,3,3,0,2,2];
+    const formSeries = {"Lokomotiv":[0,0.4,0.4,0.8,1.2,1.6,1.6,2,1.6,1.2,1.2,0.8,0.4,0.4,0.4,0,0.4,0.4,0.4,0.8],"Ak Bars":[0.4,0.4,0.8,0.8,0.4,0.8,0.8,0.8,1.2,1.2,1.6,1.6,1.6,1.6,1.6,1.6,0.8,0.8,0.8,0.4],"Salavat Yulaev":[0.8,1.2,1.6,1.6,2,1.6,1.6,1.2,0.4,0.8,0.4,0.8,1.2,1.2,0.8,1.2,0.8,1.2,1.6,1.2],"Avangard":[0,0.4,0.8,0.8,0.8,1.2,0.8,0.4,0.8,0.4,0.4,0.4,0.4,0.4,0.4,0.8,0.4,0.8,1.2,1.2],"Traktor":[0.4,0.4,0.8,1.2,1.6,2,1.6,1.2,0.4,0.4,0.4,0.4,0.4,0.8,0.8,1.2,1.6,1.6,1.2,1.2],"SKA":[0,0.5,0.8,0.8,0.8,1.2,1.2,1.2,1.6,1.6,1.2,1.2,1.2,1.2,0.8,1.2,0.8,0.8,1.2,1.2]};
+    const dinamoSummary = {"team":"Dinamo Minsk","matches":28,"wins":5,"winRate":17.86,"avgGoalsFor":2.75,"avgGoalsAgainst":3.29,"avgRestDays":5.25,"avgForm":0.41,"avgShotsFor":29.56,"avgPpPct":22.52};
+    const dinamoTimeline = {"labels":["Матч 1","Матч 2","Матч 3","Матч 4","Матч 5","Матч 6","Матч 7","Матч 8","Матч 9","Матч 10","Матч 11","Матч 12","Матч 13","Матч 14","Матч 15","Матч 16","Матч 17","Матч 18","Матч 19","Матч 20","Матч 21","Матч 22","Матч 23","Матч 24","Матч 25","Матч 26","Матч 27","Матч 28"],"goalsFor":[2,5,4,4,3,2,3,3,5,5,1,2,3,1,1,2,3,3,3,2,2,2,3,4,2,4,2,1],"goalsAgainst":[2,3,2,4,3,2,2,3,3,3,2,4,4,3,4,2,3,4,4,5,3,2,5,4,3,5,4,4]};
+    const dinamoStandings = {"place":5,"team":"Динамо Мн","games":68,"wins":33,"winsOt":2,"winsSo":4,"lossesSo":5,"lossesOt":5,"losses":19,"goalsFor":247,"goalsAgainst":173,"points":88};
+    const modelReport = {"sampleSizes":{"rawMatches":160,"features":150,"train":120,"test":30},"classification":{"accuracy":0.4,"logLoss":0.7944,"confusionMatrix":[[12,0],[18,0]]},"goalsRegression":{"homeGoals":{"mae":3.6167,"rmse":3.7017},"awayGoals":{"mae":2.5167,"rmse":2.7165}},"artifacts":{"raw":"data/raw/matches.json","processed":"data/processed/features.json","correlationMatrix":"reports/correlation-matrix.json"}};
+
+    const statItems = dinamoStandings
+      ? [
+          { label: "Место в таблице", value: dinamoStandings.place },
+          { label: "Матчей", value: dinamoStandings.games },
+          { label: "Побед (в осн. время)", value: dinamoStandings.wins },
+          { label: "Побед ОТ/Б", value: (dinamoStandings.winsOt + dinamoStandings.winsSo) },
+          { label: "Поражений ОТ/Б", value: (dinamoStandings.lossesOt + dinamoStandings.lossesSo) },
+          { label: "Поражений", value: dinamoStandings.losses },
+          { label: "Шайбы", value: dinamoStandings.goalsFor + " - " + dinamoStandings.goalsAgainst },
+          { label: "Очки", value: dinamoStandings.points }
+        ]
+      : [
+          { label: "Матчей", value: dinamoSummary.matches },
+          { label: "Побед", value: dinamoSummary.wins },
+          { label: "Процент побед", value: dinamoSummary.winRate + "%" },
+          { label: "Ср. голы забитые", value: dinamoSummary.avgGoalsFor },
+          { label: "Ср. голы пропущенные", value: dinamoSummary.avgGoalsAgainst },
+          { label: "Ср. дни отдыха", value: dinamoSummary.avgRestDays },
+          { label: "Ср. форма (5 матчей)", value: dinamoSummary.avgForm },
+          { label: "Ср. броски в створ", value: dinamoSummary.avgShotsFor },
+          { label: "Ср. большинство, %", value: dinamoSummary.avgPpPct }
+        ];
+
+    const statsHtml = statItems
+      .map((item) => '<div class="stat-box"><div class="stat-label">' + item.label + '</div><div class="stat-value">' + item.value + '</div></div>')
+      .join("");
+    document.getElementById("dinamoSummary").innerHTML = statsHtml;
+
+    Plotly.newPlot("corr", [{
+      type: "heatmap",
+      x: corrLabelsRu,
+      y: corrLabelsRu,
+      z: corrZ,
+      colorscale: "RdBu",
+      zmid: 0
+    }], {
+      paper_bgcolor: "#111827",
+      plot_bgcolor: "#111827",
+      font: { color: "#e2e8f0" },
+      xaxis: { automargin: true, tickangle: -25, tickfont: { size: 11 } },
+      yaxis: { automargin: true, tickfont: { size: 11 } },
+      margin: { l: 280, r: 20, t: 20, b: 170 }
+    });
+
+    Plotly.newPlot("goalsDist", [
+      { x: homeGoals, type: "histogram", name: "Голы хозяев", opacity: 0.7 },
+      { x: awayGoals, type: "histogram", name: "Голы гостей", opacity: 0.7 }
+    ], {
+      barmode: "overlay",
+      paper_bgcolor: "#111827",
+      plot_bgcolor: "#111827",
+      font: { color: "#e2e8f0" },
+      xaxis: { title: "Количество голов" },
+      yaxis: { title: "Частота" },
+      margin: { l: 40, r: 20, t: 20, b: 40 }
+    });
+
+    Plotly.newPlot("goalDiffDist", [{
+      x: goalDiff,
+      type: "histogram",
+      marker: { color: "#38bdf8" }
+    }], {
+      paper_bgcolor: "#111827",
+      plot_bgcolor: "#111827",
+      font: { color: "#e2e8f0" },
+      xaxis: { title: "Разница голов (хозяева - гости)" },
+      yaxis: { title: "Частота" },
+      margin: { l: 40, r: 20, t: 20, b: 40 }
+    });
+
+    const traces = Object.entries(formSeries).map(([team, points]) => ({
+      y: points,
+      mode: "lines+markers",
+      name: team
+    }));
+    Plotly.newPlot("teamForm", traces, {
+      paper_bgcolor: "#111827",
+      plot_bgcolor: "#111827",
+      font: { color: "#e2e8f0" },
+      xaxis: { title: "Порядковый номер домашнего матча" },
+      yaxis: { title: "Средние очки за последние 5 матчей" },
+      margin: { l: 60, r: 20, t: 20, b: 50 }
+    });
+
+    Plotly.newPlot("dinamoGoals", [
+      { x: dinamoTimeline.labels, y: dinamoTimeline.goalsFor, mode: "lines+markers", name: "Забитые" },
+      { x: dinamoTimeline.labels, y: dinamoTimeline.goalsAgainst, mode: "lines+markers", name: "Пропущенные" }
+    ], {
+      paper_bgcolor: "#111827",
+      plot_bgcolor: "#111827",
+      font: { color: "#e2e8f0" },
+      xaxis: { title: "Матчи Динамо Минск" },
+      yaxis: { title: "Количество голов" },
+      margin: { l: 60, r: 20, t: 20, b: 70 }
+    });
+
+    const classification = modelReport.classification || {};
+    const goalsRegression = modelReport.goalsRegression || {};
+    const homeGoalsMetrics = goalsRegression.homeGoals || {};
+    const awayGoalsMetrics = goalsRegression.awayGoals || {};
+
+    const metricsTableHtml = [
+      '<table>',
+      '<thead><tr><th>Модель</th><th>Метрика</th><th>Значение</th></tr></thead>',
+      '<tbody>',
+      '<tr><td>Логистическая</td><td>Accuracy</td><td>' + (classification.accuracy ?? "-") + '</td></tr>',
+      '<tr><td>Логистическая</td><td>LogLoss</td><td>' + (classification.logLoss ?? "-") + '</td></tr>',
+      '<tr><td>Пуассон (голы хозяев)</td><td>MAE</td><td>' + (homeGoalsMetrics.mae ?? "-") + '</td></tr>',
+      '<tr><td>Пуассон (голы хозяев)</td><td>RMSE</td><td>' + (homeGoalsMetrics.rmse ?? "-") + '</td></tr>',
+      '<tr><td>Пуассон (голы гостей)</td><td>MAE</td><td>' + (awayGoalsMetrics.mae ?? "-") + '</td></tr>',
+      '<tr><td>Пуассон (голы гостей)</td><td>RMSE</td><td>' + (awayGoalsMetrics.rmse ?? "-") + '</td></tr>',
+      '</tbody>',
+      '</table>'
+    ].join("");
+    document.getElementById("metricsTable").innerHTML = metricsTableHtml;
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "sourceUrl": "https://hcdinamo.by/matches/standings/",
+  "mode": "synthetic_fallback",
+  "records": 160,
+  "reason": "standings page does not contain enough per-match rows with scores; standings saved separately"
+}
