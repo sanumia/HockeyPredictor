@@ -7,16 +7,15 @@ export interface LogisticModel {
 }
 
 const MODEL_FEATURES: Array<keyof FeatureRow> = [
+  "isHome",
   "restDaysHome",
   "restDaysAway",
   "formLast5Home",
   "formLast5Away",
-  "shotsForAvgHome",
-  "shotsForAvgAway",
-  "ppPctHome",
-  "ppPctAway",
-  "goalieSvPctHome",
-  "goalieSvPctAway"
+  "goalsForAvgHome",
+  "goalsForAvgAway",
+  "goalsAgainstAvgHome",
+  "goalsAgainstAvgAway"
 ];
 
 export function toModelVector(row: FeatureRow): number[] {

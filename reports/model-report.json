@@ -1,32 +1,32 @@
 {
   "sampleSizes": {
-    "rawMatches": 160,
-    "features": 150,
-    "train": 120,
-    "test": 30
+    "rawMatches": 84,
+    "features": 82,
+    "train": 65,
+    "test": 17
   },
   "classification": {
-    "accuracy": 0.6333,
-    "logLoss": 0.6644,
+    "accuracy": 0.4706,
+    "logLoss": 0.914,
     "confusionMatrix": [
       [
-        19,
-        0
+        0,
+        9
       ],
       [
-        11,
-        0
+        0,
+        8
       ]
     ]
   },
   "goalsRegression": {
     "homeGoals": {
-      "mae": 3.2833,
-      "rmse": 3.4355
+      "mae": 2.681,
+      "rmse": 3.6601
     },
     "awayGoals": {
-      "mae": 9.1,
-      "rmse": 9.1706
+      "mae": 0.959,
+      "rmse": 1.2615
     }
   },
   "artifacts": {

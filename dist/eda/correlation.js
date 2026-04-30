@@ -9,20 +9,15 @@ const paths_1 = require("../config/paths");
 const node_path_1 = __importDefault(require("node:path"));
 const simple_statistics_1 = require("simple-statistics");
 const EDA_FEATURES = [
+    "isHome",
     "restDaysHome",
     "restDaysAway",
     "formLast5Home",
     "formLast5Away",
-    "shotsForAvgHome",
-    "shotsForAvgAway",
-    "shotsAgainstAvgHome",
-    "shotsAgainstAvgAway",
-    "faceoffPctHome",
-    "faceoffPctAway",
-    "ppPctHome",
-    "ppPctAway",
-    "goalieSvPctHome",
-    "goalieSvPctAway",
+    "goalsForAvgHome",
+    "goalsForAvgAway",
+    "goalsAgainstAvgHome",
+    "goalsAgainstAvgAway",
     "homeGoals",
     "awayGoals",
     "homeWin"

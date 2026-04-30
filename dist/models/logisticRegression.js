@@ -5,16 +5,15 @@ exports.splitByTime = splitByTime;
 exports.trainLogisticRegression = trainLogisticRegression;
 const math_1 = require("../utils/math");
 const MODEL_FEATURES = [
+    "isHome",
     "restDaysHome",
     "restDaysAway",
     "formLast5Home",
     "formLast5Away",
-    "shotsForAvgHome",
-    "shotsForAvgAway",
-    "ppPctHome",
-    "ppPctAway",
-    "goalieSvPctHome",
-    "goalieSvPctAway"
+    "goalsForAvgHome",
+    "goalsForAvgAway",
+    "goalsAgainstAvgHome",
+    "goalsAgainstAvgAway"
 ];
 function toModelVector(row) {
     return MODEL_FEATURES.map((key) => Number(row[key]) || 0);

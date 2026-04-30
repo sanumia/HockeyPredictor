@@ -5,10 +5,15 @@ import { ensureDirForFile } from "../utils/fs";
 import { writeFile } from "node:fs/promises";
 
 const FEATURE_LABELS_RU: Record<string, string> = {
+  isHome: "Домашний матч (1/0)",
   restDaysHome: "Дни отдыха (хозяева)",
   restDaysAway: "Дни отдыха (гости)",
   formLast5Home: "Форма за 5 матчей (хозяева)",
   formLast5Away: "Форма за 5 матчей (гости)",
+  goalsForAvgHome: "Голы забитые, ср. (хозяева)",
+  goalsForAvgAway: "Голы забитые, ср. (гости)",
+  goalsAgainstAvgHome: "Голы пропущенные, ср. (хозяева)",
+  goalsAgainstAvgAway: "Голы пропущенные, ср. (гости)",
   shotsForAvgHome: "Броски в створ, ср. (хозяева)",
   shotsForAvgAway: "Броски в створ, ср. (гости)",
   shotsAgainstAvgHome: "Броски против, ср. (хозяева)",
@@ -146,8 +151,15 @@ export async function generateVisualReport(params: {
   correlationMatrix: Record<string, Record<string, number>>;
   modelReport: Record<string, unknown>;
   standings?: StandingsRecord[];
+  dinamoExpectedVsReal?: Array<{
+    label: string;
+    date: string;
+    opponent: string;
+    expectedGoals: number;
+    realGoals: number;
+  }>;
 }): Promise<string> {
-  const { rows, correlationMatrix, modelReport, standings } = params;
+  const { rows, correlationMatrix, modelReport, standings, dinamoExpectedVsReal } = params;
   const targetFile = path.join(REPORTS_DIR, "visual-report.html");
 
   const corrFeatures = Object.keys(correlationMatrix);
@@ -238,7 +250,7 @@ export async function generateVisualReport(params: {
     </div>
 
     <div class="card wide">
-      <h2>Динамо Минск: голы по матчам</h2>
+      <h2>Динамо Минск: ожидаемые и реальные голы</h2>
       <div id="dinamoGoals" style="height: 360px;"></div>
     </div>
 
@@ -259,6 +271,7 @@ export async function generateVisualReport(params: {
     const dinamoSummary = ${JSON.stringify(dinamoSummary)};
     const dinamoTimeline = ${JSON.stringify(dinamoTimeline)};
     const dinamoStandings = ${JSON.stringify(dinamoStandings ?? null)};
+    const dinamoExpectedVsReal = ${JSON.stringify(dinamoExpectedVsReal ?? [])};
     const modelReport = ${JSON.stringify(modelReport)};
 
     const statItems = dinamoStandings
@@ -345,14 +358,34 @@ export async function generateVisualReport(params: {
       margin: { l: 60, r: 20, t: 20, b: 50 }
     });
 
-    Plotly.newPlot("dinamoGoals", [
-      { x: dinamoTimeline.labels, y: dinamoTimeline.goalsFor, mode: "lines+markers", name: "Забитые" },
-      { x: dinamoTimeline.labels, y: dinamoTimeline.goalsAgainst, mode: "lines+markers", name: "Пропущенные" }
-    ], {
+    const xAxisLabels = dinamoExpectedVsReal.length
+      ? dinamoExpectedVsReal.map((m) => m.label + " vs " + m.opponent)
+      : dinamoTimeline.labels;
+    const realGoalsSeries = dinamoExpectedVsReal.length
+      ? dinamoExpectedVsReal.map((m) => m.realGoals)
+      : dinamoTimeline.goalsFor;
+    const expectedGoalsSeries = dinamoExpectedVsReal.length
+      ? dinamoExpectedVsReal.map((m) => m.expectedGoals)
+      : [];
+
+    const dinamoTraces = [
+      { x: xAxisLabels, y: realGoalsSeries, mode: "lines+markers", name: "Реальные голы" }
+    ];
+    if (expectedGoalsSeries.length) {
+      dinamoTraces.push({
+        x: xAxisLabels,
+        y: expectedGoalsSeries,
+        mode: "lines+markers",
+        name: "Ожидаемые голы",
+        line: { dash: "dash" }
+      });
+    }
+
+    Plotly.newPlot("dinamoGoals", dinamoTraces, {
       paper_bgcolor: "#111827",
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
-      xaxis: { title: "Матчи Динамо Минск" },
+      xaxis: { title: "Матчи Динамо Минск", tickangle: -20 },
       yaxis: { title: "Количество голов" },
       margin: { l: 60, r: 20, t: 20, b: 70 }
     });

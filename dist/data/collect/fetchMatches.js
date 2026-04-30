@@ -41,7 +41,10 @@ const axios_1 = __importDefault(require("axios"));
 const cheerio = __importStar(require("cheerio"));
 const paths_1 = require("../../config/paths");
 const fs_1 = require("../../utils/fs");
-const SOURCE_URL = "https://hcdinamo.by/matches/standings/";
+const SOURCE_URL = "https://hcdinamo.by/matches/";
+const STANDINGS_URL = "https://hcdinamo.by/matches/standings/";
+const DINAMO_TEAM = "Динамо-Минск";
+const MAX_MONTH_TOKENS = 18;
 function parseNumber(value, fallback = 0) {
     const normalized = value.replace(",", ".").replace(/[^\d.-]/g, "").trim();
     const parsed = Number(normalized);
@@ -50,6 +53,22 @@ function parseNumber(value, fallback = 0) {
 function parseGoalsPair(value) {
     const [left, right] = value.split("-").map((x) => parseNumber(x, 0));
     return { forGoals: left, againstGoals: right };
+}
+function parseDateRuToIso(value) {
+    const match = value.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!match) {
+        return null;
+    }
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    if (!day || !month || !year) {
+        return null;
+    }
+    return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+function normalizeSpaces(value) {
+    return value.replace(/\s+/g, " ").trim();
 }
 function parseStandingsFromPage(html) {
     const $ = cheerio.load(html);
@@ -93,123 +112,126 @@ function parseStandingsFromPage(html) {
     const firstLeagueSlice = standings.slice(0, 22);
     return firstLeagueSlice.length >= 10 ? firstLeagueSlice : standings;
 }
-function generateSyntheticData(matchesPerTeam = 30) {
-    const teams = [
-        "Dinamo Minsk",
-        "SKA",
-        "CSKA",
-        "Lokomotiv",
-        "Ak Bars",
-        "Salavat Yulaev",
-        "Avangard",
-        "Traktor"
-    ];
-    const records = [];
-    const start = new Date("2025-09-01");
-    let dayOffset = 0;
-    for (let t = 0; t < teams.length; t += 1) {
-        for (let k = 0; k < matchesPerTeam; k += 1) {
-            const opponent = teams[(t + k + 1) % teams.length];
-            const homeGoals = Math.max(0, Math.round(2 + Math.random() * 3));
-            const awayGoals = Math.max(0, Math.round(1 + Math.random() * 3));
-            const date = new Date(start);
-            date.setDate(start.getDate() + dayOffset);
-            dayOffset += 1;
-            records.push({
-                date: date.toISOString().slice(0, 10),
-                homeTeam: teams[t],
-                awayTeam: opponent,
-                homeGoals,
-                awayGoals,
-                homeShots: Math.round(23 + Math.random() * 15),
-                awayShots: Math.round(22 + Math.random() * 14),
-                homeFaceoffPct: Math.round((45 + Math.random() * 12) * 10) / 10,
-                awayFaceoffPct: Math.round((43 + Math.random() * 12) * 10) / 10,
-                homePpPct: Math.round((15 + Math.random() * 15) * 10) / 10,
-                awayPpPct: Math.round((14 + Math.random() * 16) * 10) / 10,
-                homeGoalieSvPct: Math.round((88 + Math.random() * 8) * 10) / 10,
-                awayGoalieSvPct: Math.round((87 + Math.random() * 8) * 10) / 10
-            });
-        }
-    }
-    return records;
-}
-function scrapeFromStandingsPage(html) {
+function extractMonthTokens(html) {
     const $ = cheerio.load(html);
-    const rows = $("table tr");
+    const tokens = new Set();
+    $("[data-date]").each((_, element) => {
+        const token = ($(element).attr("data-date") ?? "").trim();
+        if (token) {
+            tokens.add(token);
+        }
+    });
+    return [...tokens];
+}
+function parseMatchesListRows(html) {
+    const $ = cheerio.load(html);
     const parsed = [];
-    rows.each((_, row) => {
-        const cells = $(row).find("td");
-        if (cells.length < 8) {
+    $("span.date").each((_, dateEl) => {
+        const dateSpan = $(dateEl);
+        const dateText = normalizeSpaces(dateSpan.text());
+        const dateIso = parseDateRuToIso(dateText);
+        if (!dateIso) {
             return;
         }
-        const homeTeam = $(cells[1]).text().trim();
-        const awayTeam = $(cells[2]).text().trim();
-        const score = $(cells[3]).text().trim();
-        if (!homeTeam || !awayTeam || !score.includes(":")) {
+        const row = dateSpan.closest("tr");
+        const rival = normalizeSpaces(row.find("span.rival").text());
+        const score = normalizeSpaces(row.find("span.score").first().text());
+        if (!rival || !/^\d+:\d+$/.test(score)) {
             return;
         }
-        const [homeScore, awayScore] = score.split(":");
+        const [leftGoalsRaw, rightGoalsRaw] = score.split(":");
+        const leftGoals = parseNumber(leftGoalsRaw, -1);
+        const rightGoals = parseNumber(rightGoalsRaw, -1);
+        if (leftGoals < 0 || rightGoals < 0) {
+            return;
+        }
+        const className = dateSpan.attr("class") ?? "";
+        const isHome = className.includes("blue");
+        const isAway = className.includes("violet");
+        if (!isHome && !isAway) {
+            return;
+        }
+        const homeTeam = isHome ? DINAMO_TEAM : rival;
+        const awayTeam = isHome ? rival : DINAMO_TEAM;
         parsed.push({
-            date: $(cells[0]).text().trim() || "2025-01-01",
+            date: dateIso,
             homeTeam,
             awayTeam,
-            homeGoals: parseNumber(homeScore),
-            awayGoals: parseNumber(awayScore),
-            homeShots: parseNumber($(cells[4]).text(), 30),
-            awayShots: parseNumber($(cells[5]).text(), 29),
-            homeFaceoffPct: parseNumber($(cells[6]).text(), 50),
-            awayFaceoffPct: parseNumber($(cells[7]).text(), 50),
-            homePpPct: parseNumber($(cells[8]).text(), 20),
-            awayPpPct: parseNumber($(cells[9]).text(), 20),
-            homeGoalieSvPct: parseNumber($(cells[10]).text(), 91),
-            awayGoalieSvPct: parseNumber($(cells[11]).text(), 90)
+            homeGoals: leftGoals,
+            awayGoals: rightGoals,
+            homeShots: 0,
+            awayShots: 0,
+            homeFaceoffPct: 0,
+            awayFaceoffPct: 0,
+            homePpPct: 0,
+            awayPpPct: 0,
+            homeGoalieSvPct: 0,
+            awayGoalieSvPct: 0
         });
     });
     return parsed;
 }
+async function fetchMonthHtml(monthToken) {
+    const payload = new URLSearchParams({
+        ajax: "Y",
+        data_calendar: monthToken,
+        type: "list"
+    });
+    const response = await axios_1.default.post(SOURCE_URL, payload.toString(), {
+        timeout: 20000,
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        }
+    });
+    return response.data;
+}
 async function collectRawMatches() {
-    try {
-        const response = await axios_1.default.get(SOURCE_URL, { timeout: 15000 });
-        const standings = parseStandingsFromPage(response.data);
-        if (standings.length > 0) {
-            await (0, fs_1.writeJson)(paths_1.STANDINGS_RAW_PATH, standings);
-        }
-        const scraped = scrapeFromStandingsPage(response.data);
-        if (scraped.length >= 20) {
-            await (0, fs_1.writeJson)(paths_1.RAW_DATA_PATH, scraped);
-            const meta = {
-                sourceUrl: SOURCE_URL,
-                mode: "scraped",
-                records: scraped.length
-            };
-            await (0, fs_1.writeJson)(paths_1.DATA_SOURCE_META_PATH, meta);
-            return scraped;
-        }
-        const fallback = generateSyntheticData(20);
-        await (0, fs_1.writeJson)(paths_1.RAW_DATA_PATH, fallback);
-        const meta = {
-            sourceUrl: SOURCE_URL,
-            mode: "synthetic_fallback",
-            records: fallback.length,
-            reason: "standings page does not contain enough per-match rows with scores; standings saved separately"
-        };
-        await (0, fs_1.writeJson)(paths_1.DATA_SOURCE_META_PATH, meta);
-        return fallback;
+    const [matchesResponse, standingsResponse] = await Promise.all([
+        axios_1.default.get(SOURCE_URL, { timeout: 20000 }),
+        axios_1.default.get(STANDINGS_URL, { timeout: 20000 })
+    ]);
+    const standings = parseStandingsFromPage(standingsResponse.data);
+    if (standings.length > 0) {
+        await (0, fs_1.writeJson)(paths_1.STANDINGS_RAW_PATH, standings);
     }
-    catch {
-        // Ignore and fallback to synthetic data.
+    const allMatches = [];
+    const visitedTokens = new Set();
+    const queue = extractMonthTokens(matchesResponse.data);
+    allMatches.push(...parseMatchesListRows(matchesResponse.data));
+    while (queue.length > 0 && visitedTokens.size < MAX_MONTH_TOKENS) {
+        const token = queue.shift();
+        if (visitedTokens.has(token)) {
+            continue;
+        }
+        visitedTokens.add(token);
+        const monthHtml = await fetchMonthHtml(token);
+        allMatches.push(...parseMatchesListRows(monthHtml));
+        for (const nextToken of extractMonthTokens(monthHtml)) {
+            if (!visitedTokens.has(nextToken)) {
+                queue.push(nextToken);
+            }
+        }
     }
-    const fallback = generateSyntheticData(20);
-    await (0, fs_1.writeJson)(paths_1.RAW_DATA_PATH, fallback);
+    const uniqueMatches = new Map();
+    for (const row of allMatches) {
+        const key = `${row.date}|${row.homeTeam}|${row.awayTeam}|${row.homeGoals}:${row.awayGoals}`;
+        if (!uniqueMatches.has(key)) {
+            uniqueMatches.set(key, row);
+        }
+    }
+    const scraped = [...uniqueMatches.values()].sort((a, b) => a.date.localeCompare(b.date));
+    if (scraped.length < 4) {
+        throw new Error("Official matches list returned too few finished games for analysis.");
+    }
+    await (0, fs_1.writeJson)(paths_1.RAW_DATA_PATH, scraped);
     const meta = {
         sourceUrl: SOURCE_URL,
-        mode: "synthetic_fallback",
-        records: fallback.length,
-        reason: "http request failed or parser error"
+        mode: "scraped",
+        records: scraped.length,
+        reason: `real match results from official list view, crawled month tokens: ${visitedTokens.size}`
     };
     await (0, fs_1.writeJson)(paths_1.DATA_SOURCE_META_PATH, meta);
-    return fallback;
+    return scraped;
 }
 if (require.main === module) {
     collectRawMatches()

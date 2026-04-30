@@ -5,20 +5,15 @@ import path from "node:path";
 import { sampleCorrelation } from "simple-statistics";
 
 const EDA_FEATURES: Array<keyof FeatureRow> = [
+  "isHome",
   "restDaysHome",
   "restDaysAway",
   "formLast5Home",
   "formLast5Away",
-  "shotsForAvgHome",
-  "shotsForAvgAway",
-  "shotsAgainstAvgHome",
-  "shotsAgainstAvgAway",
-  "faceoffPctHome",
-  "faceoffPctAway",
-  "ppPctHome",
-  "ppPctAway",
-  "goalieSvPctHome",
-  "goalieSvPctAway",
+  "goalsForAvgHome",
+  "goalsForAvgAway",
+  "goalsAgainstAvgHome",
+  "goalsAgainstAvgAway",
   "homeGoals",
   "awayGoals",
   "homeWin"

@@ -18,8 +18,8 @@ async function runPipeline() {
     const rawMatches = await (0, fetchMatches_1.collectRawMatches)();
     const featureRows = await (0, buildDataset_1.buildFeatureDataset)(rawMatches);
     const corr = await (0, correlation_1.runCorrelationAnalysis)(featureRows);
-    if (featureRows.length < 30) {
-        throw new Error("Not enough rows for train/test. Collect more matches.");
+    if (featureRows.length < 2) {
+        throw new Error("Not enough real matches for train/test. Need at least 2 finished games.");
     }
     // 2) Train/test split by time.
     const split = (0, logisticRegression_1.splitByTime)(featureRows, 0.8);
@@ -76,11 +76,30 @@ async function runPipeline() {
     catch {
         standings = undefined;
     }
+    const dinamoExpectedVsReal = featureRows
+        .filter((row) => row.homeTeam.includes("Динамо") || row.awayTeam.includes("Динамо"))
+        .map((row, idx) => {
+        const vector = (0, logisticRegression_1.toModelVector)(row);
+        const isDinamoHome = row.homeTeam.includes("Динамо");
+        const expectedGoals = isDinamoHome
+            ? poissonModels.homeGoalsModel.predictLambda(vector)
+            : poissonModels.awayGoalsModel.predictLambda(vector);
+        const realGoals = isDinamoHome ? row.homeGoals : row.awayGoals;
+        const opponent = isDinamoHome ? row.awayTeam : row.homeTeam;
+        return {
+            label: `Матч ${idx + 1}`,
+            date: row.date,
+            opponent,
+            expectedGoals: Number(expectedGoals.toFixed(2)),
+            realGoals
+        };
+    });
     await (0, visualReport_1.generateVisualReport)({
         rows: featureRows,
         correlationMatrix: corr,
         modelReport: report,
-        standings
+        standings,
+        dinamoExpectedVsReal
     });
     console.log("Pipeline finished.");
     console.log("Artifacts:");

@@ -1,6 +1,6 @@
 {
-  "sourceUrl": "https://hcdinamo.by/matches/standings/",
-  "mode": "synthetic_fallback",
-  "records": 160,
-  "reason": "standings page does not contain enough per-match rows with scores; standings saved separately"
+  "sourceUrl": "https://hcdinamo.by/matches/",
+  "mode": "scraped",
+  "records": 84,
+  "reason": "real match results from official list view, crawled month tokens: 18"
 }
