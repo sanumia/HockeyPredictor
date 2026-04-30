@@ -23,6 +23,10 @@ export interface FeatureRow {
   restDaysAway: number;
   formLast5Home: number;
   formLast5Away: number;
+  goalsForAvgHome: number;
+  goalsForAvgAway: number;
+  goalsAgainstAvgHome: number;
+  goalsAgainstAvgAway: number;
   shotsForAvgHome: number;
   shotsForAvgAway: number;
   shotsAgainstAvgHome: number;

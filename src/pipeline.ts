@@ -16,8 +16,8 @@ async function runPipeline(): Promise<void> {
   const featureRows = await buildFeatureDataset(rawMatches);
   const corr = await runCorrelationAnalysis(featureRows);
 
-  if (featureRows.length < 30) {
-    throw new Error("Not enough rows for train/test. Collect more matches.");
+  if (featureRows.length < 2) {
+    throw new Error("Not enough real matches for train/test. Need at least 2 finished games.");
   }
 
   // 2) Train/test split by time.
@@ -79,11 +79,31 @@ async function runPipeline(): Promise<void> {
   } catch {
     standings = undefined;
   }
+  const dinamoExpectedVsReal = featureRows
+    .filter((row) => row.homeTeam.includes("Динамо") || row.awayTeam.includes("Динамо"))
+    .map((row, idx) => {
+      const vector = toModelVector(row);
+      const isDinamoHome = row.homeTeam.includes("Динамо");
+      const expectedGoals = isDinamoHome
+        ? poissonModels.homeGoalsModel.predictLambda(vector)
+        : poissonModels.awayGoalsModel.predictLambda(vector);
+      const realGoals = isDinamoHome ? row.homeGoals : row.awayGoals;
+      const opponent = isDinamoHome ? row.awayTeam : row.homeTeam;
+      return {
+        label: `Матч ${idx + 1}`,
+        date: row.date,
+        opponent,
+        expectedGoals: Number(expectedGoals.toFixed(2)),
+        realGoals
+      };
+    });
+
   await generateVisualReport({
     rows: featureRows,
     correlationMatrix: corr,
     modelReport: report,
-    standings
+    standings,
+    dinamoExpectedVsReal
   });
 
   console.log("Pipeline finished.");

@@ -52,6 +52,10 @@ async function buildFeatureDataset(rawMatches) {
             // Form is represented as rolling average points in the last 5 matches.
             formLast5Home: (0, math_1.mean)(lastN(homeState.points, 5)),
             formLast5Away: (0, math_1.mean)(lastN(awayState.points, 5)),
+            goalsForAvgHome: (0, math_1.mean)(lastN(homeState.goalsFor, 10)),
+            goalsForAvgAway: (0, math_1.mean)(lastN(awayState.goalsFor, 10)),
+            goalsAgainstAvgHome: (0, math_1.mean)(lastN(homeState.goalsAgainst, 10)),
+            goalsAgainstAvgAway: (0, math_1.mean)(lastN(awayState.goalsAgainst, 10)),
             // Rate features are rolling means over 10 matches for better stability.
             shotsForAvgHome: (0, math_1.mean)(lastN(homeState.shotsFor, 10)),
             shotsForAvgAway: (0, math_1.mean)(lastN(awayState.shotsFor, 10)),
@@ -91,7 +95,7 @@ async function buildFeatureDataset(rawMatches) {
         awayState.goalieSvPct.push(match.awayGoalieSvPct);
         awayState.points.push(awayPoints);
     }
-    const warmupTrim = 10;
+    const warmupTrim = Math.min(2, Math.floor(rows.length / 3));
     const readyRows = rows.slice(Math.min(warmupTrim, rows.length));
     await (0, fs_1.writeJson)(paths_1.PROCESSED_DATA_PATH, readyRows);
     return readyRows;
