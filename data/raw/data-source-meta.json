@@ -1,6 +1,6 @@
 {
   "sourceUrl": "https://hcdinamo.by/matches/",
   "mode": "scraped",
-  "records": 84,
-  "reason": "real match results from official list view, crawled month tokens: 18"
+  "records": 68,
+  "reason": "real match results from official list view, crawled month tokens: 18; filter: regular season only (68 games by standings, from 2025-09-01)"
 }

@@ -24,9 +24,19 @@ const FEATURE_LABELS_RU: Record<string, string> = {
   ppPctAway: "Большинство %, ср. (гости)",
   goalieSvPctHome: "Сэйвы вратаря %, ср. (хозяева)",
   goalieSvPctAway: "Сэйвы вратаря %, ср. (гости)",
+  eloHome: "ELO Динамо (до матча)",
+  eloAway: "ELO соперника (до матча)",
+  eloDiff: "Разница ELO (Динамо - соперник)",
+  opponentStrength: "Сила соперника (rolling points)",
+  rollingGoalDiffHome: "Rolling разница шайб Динамо",
+  rollingGoalDiffAway: "Rolling разница шайб соперника",
+  formHomeVenue: "Форма Динамо на текущем типе площадки",
+  formAwayVenue: "Форма соперника на текущем типе площадки",
+  winStreakHome: "Серия побед Динамо",
+  winStreakAway: "Серия побед соперника",
   homeGoals: "Голы хозяев",
   awayGoals: "Голы гостей",
-  homeWin: "Победа хозяев"
+  homeWin: "Победа Динамо"
 };
 
 function topTeamsByMatches(rows: FeatureRow[], limit = 8): string[] {
@@ -52,7 +62,7 @@ function buildFormSeries(rows: FeatureRow[], teams: string[]): Record<string, nu
   return series;
 }
 
-function buildDinamoSummary(rows: FeatureRow[], teamName = "Dinamo Minsk"): {
+function buildDinamoSummary(rows: FeatureRow[], teamName = "Динамо-Минск"): {
   team: string;
   matches: number;
   wins: number;
@@ -122,11 +132,11 @@ function findDinamoInStandings(standings: StandingsRecord[] | undefined): Standi
   if (!standings?.length) {
     return undefined;
   }
-  const aliases = ["Динамо Мн", "Dinamo Minsk", "Динамо Минск"];
+  const aliases = ["Динамо Мн", "Dinamo Minsk", "Динамо Минск", "Динамо-Минск"];
   return standings.find((row) => aliases.some((alias) => row.team.includes(alias)));
 }
 
-function buildDinamoGoalTimeline(rows: FeatureRow[], teamName = "Dinamo Minsk"): {
+function buildDinamoGoalTimeline(rows: FeatureRow[], teamName = "Динамо-Минск"): {
   labels: string[];
   goalsFor: number[];
   goalsAgainst: number[];
@@ -194,9 +204,10 @@ export async function generateVisualReport(params: {
     .stat-value { font-size: 22px; font-weight: 700; color: #f8fafc; }
     .formula { margin: 8px 0; background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
     .formula code { color: #e2e8f0; font-size: 14px; }
-    #metricsTable table { width: 100%; border-collapse: collapse; }
-    #metricsTable th, #metricsTable td { border: 1px solid #243042; padding: 8px; text-align: left; }
-    #metricsTable th { background: #0b1220; }
+    table.report-table { width: 100%; border-collapse: collapse; }
+    table.report-table th, table.report-table td { border: 1px solid #243042; padding: 8px; text-align: left; vertical-align: top; }
+    table.report-table th { background: #0b1220; }
+    .small { font-size: 12px; color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -206,11 +217,13 @@ export async function generateVisualReport(params: {
   <div class="grid">
     <div class="card wide">
       <h2>Динамо Минск: ключевая статистика</h2>
+      <p class="small">Сводка по сезону: базовые показатели команды для быстрого контекста перед анализом моделей.</p>
       <div id="dinamoSummary" class="stats-grid"></div>
     </div>
 
     <div class="card wide">
       <h2>Формулы расчета</h2>
+      <p class="small">Коротко: какие математические формулы использовались для корреляций, вероятности победы и оценки качества.</p>
       <div class="formula">
         <div><b>Коэффициент корреляции Пирсона:</b></div>
         <code>r = Σ((xᵢ - x̄)(yᵢ - ȳ)) / √(Σ(xᵢ - x̄)² Σ(yᵢ - ȳ)²)</code>
@@ -231,32 +244,53 @@ export async function generateVisualReport(params: {
 
     <div class="card wide">
       <h2>Тепловая карта корреляций</h2>
+      <p class="small">Показывает линейную связь факторов между собой и с исходом: ближе к +1/-1 — сильнее связь, ближе к 0 — слабее.</p>
       <div id="corr" style="height: 520px;"></div>
     </div>
 
     <div class="card">
       <h2>Распределение голов</h2>
+      <p class="small">Гистограмма фактических голов Динамо и соперников. Нужна для проверки типичных диапазонов счёта.</p>
       <div id="goalsDist" style="height: 360px;"></div>
     </div>
 
     <div class="card">
       <h2>Распределение разницы голов</h2>
+      <p class="small">Разница шайб (Динамо - соперник): помогает понять баланс матчей и частоту уверенных побед/поражений.</p>
       <div id="goalDiffDist" style="height: 360px;"></div>
     </div>
 
     <div class="card wide">
       <h2>Динамика формы команд (средние очки за 5 матчей)</h2>
+      <p class="small">Rolling-форма по последним матчам. Используется как один из предикторов текущей силы команды.</p>
       <div id="teamForm" style="height: 420px;"></div>
     </div>
 
     <div class="card wide">
       <h2>Динамо Минск: ожидаемые и реальные голы</h2>
+      <p class="small">Сравнение прогноза Пуассона и реального числа голов в матчах. Наглядная проверка точности модели голов.</p>
       <div id="dinamoGoals" style="height: 360px;"></div>
+    </div>
+    <div class="card wide">
+      <h2>Таблица соответствия матчей</h2>
+      <p class="small">Реальные и ожидаемые голы Динамо Минск по каждому матчу.</p>
+      <div id="matchesTable"></div>
     </div>
 
     <div class="card wide">
       <h2>Метрики моделей</h2>
+      <p class="small">Accuracy/LogLoss — качество прогноза исхода, MAE/RMSE — ошибка прогноза количества голов.</p>
       <div id="metricsTable"></div>
+    </div>
+    <div class="card wide">
+      <h2>Walk-forward по окнам</h2>
+      <p class="small">Каждая строка — отдельный временной фолд (train/validation/test), без утечки данных из будущего.</p>
+      <div id="walkForwardTable"></div>
+    </div>
+    <div class="card wide">
+      <h2>Как считается прогноз</h2>
+      <p class="small">Здесь показаны формула ансамбля, цель классификации, калибровка Platt и какие признаки чаще отбирались.</p>
+      <div id="modelingInfo"></div>
     </div>
   </div>
 
@@ -319,8 +353,8 @@ export async function generateVisualReport(params: {
     });
 
     Plotly.newPlot("goalsDist", [
-      { x: homeGoals, type: "histogram", name: "Голы хозяев", opacity: 0.7 },
-      { x: awayGoals, type: "histogram", name: "Голы гостей", opacity: 0.7 }
+      { x: homeGoals, type: "histogram", name: "Голы Динамо Минск", opacity: 0.7 },
+      { x: awayGoals, type: "histogram", name: "Голы соперников", opacity: 0.7 }
     ], {
       barmode: "overlay",
       paper_bgcolor: "#111827",
@@ -385,22 +419,27 @@ export async function generateVisualReport(params: {
       paper_bgcolor: "#111827",
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
-      xaxis: { title: "Матчи Динамо Минск", tickangle: -20 },
-      yaxis: { title: "Количество голов" },
+      xaxis: { title: "Матчи Динамо Минск", tickangle: -90 },
+      yaxis: { title: "Голы Динамо Минск" },
       margin: { l: 60, r: 20, t: 20, b: 70 }
     });
 
     const classification = modelReport.classification || {};
+    const aggregationPolicy = modelReport.aggregationPolicy || {};
+    const pooled = aggregationPolicy.pooled || {};
+    const macro = aggregationPolicy.macro || {};
     const goalsRegression = modelReport.goalsRegression || {};
     const homeGoalsMetrics = goalsRegression.homeGoals || {};
     const awayGoalsMetrics = goalsRegression.awayGoals || {};
 
     const metricsTableHtml = [
-      '<table>',
+      '<table class="report-table">',
       '<thead><tr><th>Модель</th><th>Метрика</th><th>Значение</th></tr></thead>',
       '<tbody>',
       '<tr><td>Логистическая</td><td>Accuracy</td><td>' + (classification.accuracy ?? "-") + '</td></tr>',
       '<tr><td>Логистическая</td><td>LogLoss</td><td>' + (classification.logLoss ?? "-") + '</td></tr>',
+      '<tr><td>Агрегация pooled</td><td>Accuracy / LogLoss</td><td>' + (pooled.accuracy ?? "-") + ' / ' + (pooled.logLoss ?? "-") + '</td></tr>',
+      '<tr><td>Агрегация macro</td><td>Accuracy / LogLoss</td><td>' + (macro.accuracy ?? "-") + ' / ' + (macro.logLoss ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы хозяев)</td><td>MAE</td><td>' + (homeGoalsMetrics.mae ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы хозяев)</td><td>RMSE</td><td>' + (homeGoalsMetrics.rmse ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы гостей)</td><td>MAE</td><td>' + (awayGoalsMetrics.mae ?? "-") + '</td></tr>',
@@ -409,6 +448,52 @@ export async function generateVisualReport(params: {
       '</table>'
     ].join("");
     document.getElementById("metricsTable").innerHTML = metricsTableHtml;
+
+    const walkForward = modelReport.walkForward || {};
+    const folds = walkForward.folds || [];
+    const walkForwardHtml = folds.length
+      ? [
+          '<table class="report-table">',
+          '<thead><tr><th>#</th><th>Train/Val/Test</th><th>Выбранные признаки</th><th>Corr(feature,target)</th><th>w_logistic</th><th>Platt (a,b)</th><th>Threshold</th><th>Accuracy</th><th>LogLoss</th></tr></thead>',
+          '<tbody>',
+          ...folds.map((f, idx) =>
+            '<tr><td>' + (idx + 1) + '</td><td>' + f.train + '/' + f.validation + '/' + f.test + '</td><td>' + ((f.selectedFeatures || []).join(", ") || "-") + '</td><td>' + Object.entries(f.featureTargetCorrelations || {}).map(([k, v]) => k + ": " + v).join("<br/>") + '</td><td>' + (f.ensembleWeightLogistic ?? "-") + '</td><td>(' + (f.plattA ?? "-") + ', ' + (f.plattB ?? "-") + ')</td><td>' + (f.threshold ?? "-") + '</td><td>' + (f.accuracy ?? "-") + '</td><td>' + (f.logLoss ?? "-") + '</td></tr>'
+          ),
+          '</tbody></table>'
+        ].join("")
+      : '<div class="small">Данные walk-forward отсутствуют.</div>';
+    document.getElementById("walkForwardTable").innerHTML = walkForwardHtml;
+
+    const details = modelReport.modelingDetails || {};
+    const freq = details.featureSelectionFrequency || {};
+    const freqRows = Object.entries(freq)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([name, cnt]) => '<tr><td>' + name + '</td><td>' + cnt + '</td></tr>')
+      .join("");
+    const modelingHtml = [
+      '<div class="formula"><div><b>Формула ансамбля:</b></div><code>' + (details.ensemble || "-") + '</code></div>',
+      '<div class="formula"><div><b>Вероятность победы из Пуассона:</b></div><code>' + (details.poissonWinProbability || "-") + '</code></div>',
+      '<div class="formula"><div><b>Целевая переменная:</b></div><code>' + (details.targetVariable || "-") + '</code></div>',
+      '<div class="formula"><div><b>Вход в Platt-калибратор:</b></div><code>' + (details.calibrationInput || "-") + '</code></div>',
+      '<div class="formula"><div><b>Правило отбора признаков:</b></div><code>' + (details.featureSelectionRule || "-") + '</code></div>',
+      '<div class="formula"><div><b>Итоговые признаки модели:</b></div><code>' + ((details.finalSelectedFeatures || []).join(", ") || "-") + '</code></div>',
+      '<div class="small">Частота выбора признаков по фолдам (авто feature selection):</div>',
+      '<table class="report-table"><thead><tr><th>Признак</th><th>Выбран в фолдах</th></tr></thead><tbody>' + (freqRows || '<tr><td colspan="2">Нет данных</td></tr>') + '</tbody></table>'
+    ].join("");
+    document.getElementById("modelingInfo").innerHTML = modelingHtml;
+
+    const matchesRows = dinamoExpectedVsReal.length
+      ? dinamoExpectedVsReal.map((m) => '<tr><td>' + m.date + '</td><td>' + m.opponent + '</td><td>' + m.realGoals + '</td><td>' + m.expectedGoals + '</td></tr>')
+      : dinamoTimeline.labels.map((label, idx) => '<tr><td>' + label + '</td><td>-</td><td>' + (dinamoTimeline.goalsFor[idx] ?? "-") + '</td><td>-</td></tr>');
+    const matchesTableHtml = [
+      '<table class="report-table">',
+      '<thead><tr><th>Дата/матч</th><th>Соперник</th><th>Реальные голы Динамо</th><th>Ожидаемые голы Динамо</th></tr></thead>',
+      '<tbody>',
+      ...matchesRows,
+      '</tbody>',
+      '</table>'
+    ].join("");
+    document.getElementById("matchesTable").innerHTML = matchesTableHtml;
   </script>
 </body>
 </html>`;

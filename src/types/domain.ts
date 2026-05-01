@@ -37,6 +37,16 @@ export interface FeatureRow {
   ppPctAway: number;
   goalieSvPctHome: number;
   goalieSvPctAway: number;
+  eloHome: number;
+  eloAway: number;
+  eloDiff: number;
+  opponentStrength: number;
+  rollingGoalDiffHome: number;
+  rollingGoalDiffAway: number;
+  formHomeVenue: number;
+  formAwayVenue: number;
+  winStreakHome: number;
+  winStreakAway: number;
   homeGoals: number;
   awayGoals: number;
   homeWin: number;

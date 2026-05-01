@@ -13,13 +13,14 @@
     .wide { grid-column: span 2; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .stat-box { background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
-    .stat-label { font-size: 16px; color: #94a3b8; margin-bottom: 6px; }
-    .stat-value { font-size: 24px; font-weight: 700; color: #f8fafc; }
+    .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #f8fafc; }
     .formula { margin: 8px 0; background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
-    .formula code { color: #e2e8f0; font-size: 18px; }
-    #metricsTable table { width: 100%; border-collapse: collapse; }
-    #metricsTable th, #metricsTable td { border: 1px solid #243042; padding: 8px; text-align: left; }
-    #metricsTable th { background: #0b1220; }
+    .formula code { color: #e2e8f0; font-size: 14px; }
+    table.report-table { width: 100%; border-collapse: collapse; }
+    table.report-table th, table.report-table td { border: 1px solid #243042; padding: 8px; text-align: left; vertical-align: top; }
+    table.report-table th { background: #0b1220; }
+    .small { font-size: 12px; color: #94a3b8; }
   </style>
 </head>
 <body>
@@ -29,11 +30,13 @@
   <div class="grid">
     <div class="card wide">
       <h2>Динамо Минск: ключевая статистика</h2>
+      <p class="small">Сводка по сезону: базовые показатели команды для быстрого контекста перед анализом моделей.</p>
       <div id="dinamoSummary" class="stats-grid"></div>
     </div>
 
     <div class="card wide">
       <h2>Формулы расчета</h2>
+      <p class="small">Коротко: какие математические формулы использовались для корреляций, вероятности победы и оценки качества.</p>
       <div class="formula">
         <div><b>Коэффициент корреляции Пирсона:</b></div>
         <code>r = Σ((xᵢ - x̄)(yᵢ - ȳ)) / √(Σ(xᵢ - x̄)² Σ(yᵢ - ȳ)²)</code>
@@ -54,48 +57,69 @@
 
     <div class="card wide">
       <h2>Тепловая карта корреляций</h2>
+      <p class="small">Показывает линейную связь факторов между собой и с исходом: ближе к +1/-1 — сильнее связь, ближе к 0 — слабее.</p>
       <div id="corr" style="height: 520px;"></div>
     </div>
 
     <div class="card">
       <h2>Распределение голов</h2>
+      <p class="small">Гистограмма фактических голов Динамо и соперников. Нужна для проверки типичных диапазонов счёта.</p>
       <div id="goalsDist" style="height: 360px;"></div>
     </div>
 
     <div class="card">
       <h2>Распределение разницы голов</h2>
+      <p class="small">Разница шайб (Динамо - соперник): помогает понять баланс матчей и частоту уверенных побед/поражений.</p>
       <div id="goalDiffDist" style="height: 360px;"></div>
     </div>
 
     <div class="card wide">
       <h2>Динамика формы команд (средние очки за 5 матчей)</h2>
+      <p class="small">Rolling-форма по последним матчам. Используется как один из предикторов текущей силы команды.</p>
       <div id="teamForm" style="height: 420px;"></div>
     </div>
 
     <div class="card wide">
       <h2>Динамо Минск: ожидаемые и реальные голы</h2>
-      <div id="dinamoGoals" style="height: 360px;"></div>
+      <p class="small">Сравнение прогноза Пуассона и реального числа голов в матчах. Наглядная проверка точности модели голов.</p>
+      <div id="dinamoGoals" style="height: 420px;"></div>
     </div>
+    <!-- <div class="card wide">
+      <h2>Таблица соответствия матчей</h2>
+      <p class="small">Реальные и ожидаемые голы Динамо Минск по каждому матчу.</p>
+      <div id="matchesTable"></div>
+    </div> -->
 
     <div class="card wide">
       <h2>Метрики моделей</h2>
+      <p class="small">Accuracy/LogLoss — качество прогноза исхода, MAE/RMSE — ошибка прогноза количества голов.</p>
       <div id="metricsTable"></div>
     </div>
+    <!-- <div class="card wide">
+      <h2>Walk-forward по окнам</h2>
+      <p class="small">Каждая строка — отдельный временной фолд (train/validation/test), без утечки данных из будущего.</p>
+      <div id="walkForwardTable"></div>
+    </div>
+    <div class="card wide">
+      <h2>Как считается прогноз</h2>
+      <p class="small">Здесь показаны формула ансамбля, цель классификации, калибровка Platt и какие признаки чаще отбирались.</p>
+      <div id="modelingInfo"></div>
+    </div> -->
   </div>
 
   <script>
     const corrFeatures = ["isHome","restDaysHome","restDaysAway","formLast5Home","formLast5Away","goalsForAvgHome","goalsForAvgAway","goalsAgainstAvgHome","goalsAgainstAvgAway","homeGoals","awayGoals","homeWin"];
-    const corrLabelsRu = ["Домашний матч (1/0)","Дни отдыха (хозяева)","Дни отдыха (гости)","Форма за 5 матчей (хозяева)","Форма за 5 матчей (гости)","Голы забитые, ср. (хозяева)","Голы забитые, ср. (гости)","Голы пропущенные, ср. (хозяева)","Голы пропущенные, ср. (гости)","Голы хозяев","Голы гостей","Победа хозяев"];
-    const corrZ = [[0,0,0,0,0,0,0,0,0,0,0,0],[0,1,-0.2088,-0.1424,0.1951,-0.17,0.3459,0.3237,0.0166,-0.0255,0.3088,-0.0273],[0,-0.2088,1,0.1453,0.0862,0.3136,0.0363,-0.0329,0.2,0.1031,-0.1102,-0.0873],[0,-0.1424,0.1453,1,-0.4656,0.7282,-0.4989,-0.2152,-0.0269,0.1037,-0.2249,0.1241],[0,0.1951,0.0862,-0.4656,1,-0.2191,0.7391,0.1364,-0.0596,-0.1812,0.1939,-0.1558],[0,-0.17,0.3136,0.7282,-0.2191,1,-0.2569,0.1411,0.0899,0.1517,-0.2548,0.1113],[0,0.3459,0.0363,-0.4989,0.7391,-0.2569,1,0.282,0.3765,-0.2498,0.3399,-0.2688],[0,0.3237,-0.0329,-0.2152,0.1364,0.1411,0.282,1,0.0501,-0.0271,0.0276,-0.1075],[0,0.0166,0.2,-0.0269,-0.0596,0.0899,0.3765,0.0501,1,-0.0404,0.0295,-0.0449],[0,-0.0255,0.1031,0.1037,-0.1812,0.1517,-0.2498,-0.0271,-0.0404,1,-0.1199,0.6526],[0,0.3088,-0.1102,-0.2249,0.1939,-0.2548,0.3399,0.0276,0.0295,-0.1199,1,-0.5364],[0,-0.0273,-0.0873,0.1241,-0.1558,0.1113,-0.2688,-0.1075,-0.0449,0.6526,-0.5364,1]];
-    const homeGoals = [2,1,4,3,2,3,0,4,1,5,3,1,3,4,3,2,4,3,2,7,3,5,0,2,8,6,2,4,0,5,7,3,4,5,6,1,1,2,3,3,7,7,1,5,2,5,4,4,2,6,2,3,2,6,1,4,5,3,3,7,4,4,6,5,3,2,2,0,1,6,4,2,3,8,3,4,1,1,1,4,4,3];
-    const awayGoals = [5,3,1,7,3,2,3,3,3,4,2,0,2,2,2,5,1,2,1,1,4,3,4,1,2,2,0,3,1,2,0,7,2,2,0,2,4,3,2,2,2,1,4,3,3,4,2,3,1,4,3,4,1,1,2,1,4,4,8,4,2,3,1,4,4,7,3,3,2,4,3,1,4,2,1,1,2,2,2,5,0,2];
-    const goalDiff = [-3,-2,3,-4,-1,1,-3,1,-2,1,1,1,1,2,1,-3,3,1,1,6,-1,2,-4,1,6,4,2,1,-1,3,7,-4,2,3,6,-1,-3,-1,1,1,5,6,-3,2,-1,1,2,1,1,2,-1,-1,1,5,-1,3,1,-1,-5,3,2,1,5,1,-1,-5,-1,-3,-1,2,1,1,-1,6,2,3,-1,-1,-1,-1,4,1];
-    const formSeries = {"Динамо-Минск":[2,1.333,1,0.8,0.8,1.2,1.2,1.6,1.6,0.8,0.8,0.8,1.2,1.2,1.6,2,2,1.6,1.6,1.2,1.6,1.2,1.2,1.2,0.8,0.8,1.2,1.2,0.4,0.4,0.8,1.2,1.6,1.2,0.4,0.4,0.4,0.8,1.2,2,1.6],"Динамо":[0,0,0,0.4,0.4],"ЦСКА":[0,1,0.8],"СКА":[0,2,1.6],"Северсталь":[1,1.333,1.5],"Локомотив":[0,1,1]};
-    const dinamoSummary = {"team":"Dinamo Minsk","matches":0,"wins":0,"winRate":0,"avgGoalsFor":0,"avgGoalsAgainst":0,"avgRestDays":0,"avgForm":0,"avgShotsFor":0,"avgPpPct":0};
-    const dinamoTimeline = {"labels":[],"goalsFor":[],"goalsAgainst":[]};
+    const corrLabelsRu = ["Домашний матч (1/0)","Дни отдыха (хозяева)","Дни отдыха (гости)","Форма за 5 матчей (хозяева)","Форма за 5 матчей (гости)","Голы забитые, ср. (хозяева)","Голы забитые, ср. (гости)","Голы пропущенные, ср. (хозяева)","Голы пропущенные, ср. (гости)","Голы хозяев","Голы гостей","Победа Динамо"];
+    const corrZ = [[1,-0.0521,-0.0339,-0.0729,0.2182,-0.1153,0.1026,-0.0512,-0.0836,0.16,-0.4004,0.3327],[-0.0521,1,0.1778,0.254,-0.0604,0.0819,0.0841,-0.1518,0.0592,-0.0651,0.0625,-0.0988],[-0.0339,0.1778,1,-0.0873,0.2428,0.1701,0.302,0.2419,0.3819,0.0327,0.1781,-0.1836],[-0.0729,0.254,-0.0873,1,-0.3443,0.4288,-0.2397,-0.5541,0.017,-0.1783,-0.0675,-0.131],[0.2182,-0.0604,0.2428,-0.3443,1,0.0268,0.8064,0.2972,0.0026,-0.1236,0.1348,-0.1966],[-0.1153,0.0819,0.1701,0.4288,0.0268,1,0.2268,-0.1265,0.4102,-0.0522,-0.0652,0.0505],[0.1026,0.0841,0.302,-0.2397,0.8064,0.2268,1,0.2991,0.381,-0.1684,0.2259,-0.2239],[-0.0512,-0.1518,0.2419,-0.5541,0.2972,-0.1265,0.2991,1,0.2254,0.0194,0.0949,-0.0504],[-0.0836,0.0592,0.3819,0.017,0.0026,0.4102,0.381,0.2254,1,-0.0795,0.1184,-0.0226],[0.16,-0.0651,0.0327,-0.1783,-0.1236,-0.0522,-0.1684,0.0194,-0.0795,1,-0.1121,0.5553],[-0.4004,0.0625,0.1781,-0.0675,0.1348,-0.0652,0.2259,0.0949,0.1184,-0.1121,1,-0.6924],[0.3327,-0.0988,-0.1836,-0.131,-0.1966,0.0505,-0.2239,-0.0504,-0.0226,0.5553,-0.6924,1]];
+    const homeGoals = [3,4,2,1,3,4,3,2,4,2,1,7,3,3,4,2,8,6,2,4,0,5,7,7,2,5,6,2,4,3,2,2,7,7,1,5,3,4,2,3,2,4,3,4,1,6,1,1,4,3,8,7,4,3,6,4,4,7,3,0,1,4,3,2,3,8];
+    const awayGoals = [1,5,3,0,2,2,2,5,1,3,2,1,4,5,0,1,2,2,0,3,1,2,0,3,4,2,0,1,1,2,3,3,2,1,4,3,2,5,4,4,1,6,2,3,2,1,2,4,5,4,3,4,2,4,1,5,3,2,2,3,2,6,4,1,4,2];
+    const goalDiff = [2,-1,-1,1,1,2,1,-3,3,-1,-1,6,-1,-2,4,1,6,4,2,1,-1,3,7,4,-2,3,6,1,3,1,-1,-1,5,6,-3,2,1,-1,-2,-1,1,-2,1,1,-1,5,-1,-3,-1,-1,5,3,2,-1,5,-1,1,5,1,-3,-1,-2,-1,1,-1,6];
+    const formSeries = {"Динамо-Минск":[1,1.333,1,0.8,0.8,1.2,1.2,1.6,1.6,1.6,1.2,0.8,0.8,0.8,0.4,0.8,1.2,1.2,1.6,2,2,1.6,1.6,1.6,1.6,1.2,1.6,1.6,1.6,1.6,2,1.6,1.2,1.2,1.2,0.8,1.2,1.6,1.2,0.8,0.8,0.8,0.4,0.8,1.2,1.2,1.2,1.2,0.8,0.4,0.4,0.4,0.8,1.2,1.2,1.6,1.2,1.2,1.2,1.6,1.2,1.2,0.8,0.4,0.4,0.4],"СКА":[],"Северсталь":[],"Локомотив":[],"Торпедо":[],"Шанхайские Драконы":[]};
+    const dinamoSummary = {"team":"Динамо-Минск","matches":66,"wins":38,"winRate":57.58,"avgGoalsFor":3.65,"avgGoalsAgainst":2.56,"avgRestDays":2.88,"avgForm":1.15,"avgShotsFor":0,"avgPpPct":0};
+    const dinamoTimeline = {"labels":["Матч 1","Матч 2","Матч 3","Матч 4","Матч 5","Матч 6","Матч 7","Матч 8","Матч 9","Матч 10","Матч 11","Матч 12","Матч 13","Матч 14","Матч 15","Матч 16","Матч 17","Матч 18","Матч 19","Матч 20","Матч 21","Матч 22","Матч 23","Матч 24","Матч 25","Матч 26","Матч 27","Матч 28","Матч 29","Матч 30","Матч 31","Матч 32","Матч 33","Матч 34","Матч 35","Матч 36","Матч 37","Матч 38","Матч 39","Матч 40","Матч 41","Матч 42","Матч 43","Матч 44","Матч 45","Матч 46","Матч 47","Матч 48","Матч 49","Матч 50","Матч 51","Матч 52","Матч 53","Матч 54","Матч 55","Матч 56","Матч 57","Матч 58","Матч 59","Матч 60","Матч 61","Матч 62","Матч 63","Матч 64","Матч 65","Матч 66"],"goalsFor":[3,4,2,1,3,4,3,2,4,2,1,7,3,3,4,2,8,6,2,4,0,5,7,7,2,5,6,2,4,3,2,2,7,7,1,5,3,4,2,3,2,4,3,4,1,6,1,1,4,3,8,7,4,3,6,4,4,7,3,0,1,4,3,2,3,8],"goalsAgainst":[1,5,3,0,2,2,2,5,1,3,2,1,4,5,0,1,2,2,0,3,1,2,0,3,4,2,0,1,1,2,3,3,2,1,4,3,2,5,4,4,1,6,2,3,2,1,2,4,5,4,3,4,2,4,1,5,3,2,2,3,2,6,4,1,4,2]};
     const dinamoStandings = {"place":5,"team":"Динамо Мн","games":68,"wins":33,"winsOt":2,"winsSo":4,"lossesSo":5,"lossesOt":5,"losses":19,"goalsFor":247,"goalsAgainst":173,"points":88};
-    const dinamoExpectedVsReal = [{"label":"Матч 1","date":"2025-08-13","opponent":"Адмирал","expectedGoals":1.8,"realGoals":2},{"label":"Матч 2","date":"2025-08-15","opponent":"Металлург Мг","expectedGoals":1.9,"realGoals":1},{"label":"Матч 3","date":"2025-08-19","opponent":"ЦСКА","expectedGoals":1.83,"realGoals":4},{"label":"Матч 4","date":"2025-08-29","opponent":"Торпедо","expectedGoals":1.6,"realGoals":7},{"label":"Матч 5","date":"2025-08-30","opponent":"Динамо-Минск","expectedGoals":1.67,"realGoals":2},{"label":"Матч 6","date":"2025-08-31","opponent":"ЦСКА","expectedGoals":2.25,"realGoals":2},{"label":"Матч 7","date":"2025-09-09","opponent":"Спартак","expectedGoals":1.7,"realGoals":3},{"label":"Матч 8","date":"2025-09-11","opponent":"Нефтехимик","expectedGoals":1.71,"realGoals":3},{"label":"Матч 9","date":"2025-09-13","opponent":"Барыс","expectedGoals":1.71,"realGoals":3},{"label":"Матч 10","date":"2025-09-15","opponent":"Авангард","expectedGoals":1.72,"realGoals":4},{"label":"Матч 11","date":"2025-09-19","opponent":"СКА","expectedGoals":1.74,"realGoals":2},{"label":"Матч 12","date":"2025-09-22","opponent":"Барыс","expectedGoals":2.79,"realGoals":1},{"label":"Матч 13","date":"2025-09-24","opponent":"Торпедо","expectedGoals":4.68,"realGoals":3},{"label":"Матч 14","date":"2025-09-26","opponent":"Северсталь","expectedGoals":1.99,"realGoals":4},{"label":"Матч 15","date":"2025-09-29","opponent":"Локомотив","expectedGoals":1.91,"realGoals":3},{"label":"Матч 16","date":"2025-10-01","opponent":"Северсталь","expectedGoals":3.01,"realGoals":2},{"label":"Матч 17","date":"2025-10-06","opponent":"Трактор","expectedGoals":1.98,"realGoals":4},{"label":"Матч 18","date":"2025-10-09","opponent":"Шанхайские Драконы","expectedGoals":1.72,"realGoals":2},{"label":"Матч 19","date":"2025-10-11","opponent":"Шанхайские Драконы","expectedGoals":2.12,"realGoals":1},{"label":"Матч 20","date":"2025-10-14","opponent":"Торпедо","expectedGoals":3.6,"realGoals":7},{"label":"Матч 21","date":"2025-10-17","opponent":"Нефтехимик","expectedGoals":3.84,"realGoals":3},{"label":"Матч 22","date":"2025-10-20","opponent":"ЦСКА","expectedGoals":2.6,"realGoals":3},{"label":"Матч 23","date":"2025-10-22","opponent":"Лада","expectedGoals":2.93,"realGoals":4},{"label":"Матч 24","date":"2025-10-24","opponent":"Шанхайские Драконы","expectedGoals":2.9,"realGoals":2},{"label":"Матч 25","date":"2025-10-28","opponent":"ХК Сочи","expectedGoals":2.01,"realGoals":8},{"label":"Матч 26","date":"2025-10-30","opponent":"Амур","expectedGoals":2.11,"realGoals":6},{"label":"Матч 27","date":"2025-11-03","opponent":"ЦСКА","expectedGoals":3.61,"realGoals":2},{"label":"Матч 28","date":"2025-11-06","opponent":"Ак Барс","expectedGoals":2.16,"realGoals":4},{"label":"Матч 29","date":"2025-11-08","opponent":"Лада","expectedGoals":3.33,"realGoals":0},{"label":"Матч 30","date":"2025-11-10","opponent":"ХК Сочи","expectedGoals":4.77,"realGoals":5},{"label":"Матч 31","date":"2025-11-12","opponent":"Сибирь","expectedGoals":2.1,"realGoals":7},{"label":"Матч 32","date":"2025-11-16","opponent":"Ак Барс","expectedGoals":2.54,"realGoals":7},{"label":"Матч 33","date":"2025-11-18","opponent":"Северсталь","expectedGoals":3.07,"realGoals":2},{"label":"Матч 34","date":"2025-11-20","opponent":"ЦСКА","expectedGoals":3.38,"realGoals":5},{"label":"Матч 35","date":"2025-11-22","opponent":"Спартак","expectedGoals":4.49,"realGoals":6},{"label":"Матч 36","date":"2025-11-28","opponent":"Торпедо","expectedGoals":3.18,"realGoals":2},{"label":"Матч 37","date":"2025-11-30","opponent":"Адмирал","expectedGoals":4.05,"realGoals":4},{"label":"Матч 38","date":"2025-12-02","opponent":"Амур","expectedGoals":3.02,"realGoals":3},{"label":"Матч 39","date":"2025-12-16","opponent":"Локомотив","expectedGoals":3.17,"realGoals":2},{"label":"Матч 40","date":"2025-12-18","opponent":"Автомобилист","expectedGoals":1.87,"realGoals":2},{"label":"Матч 41","date":"2025-12-21","opponent":"Лада","expectedGoals":3.48,"realGoals":7},{"label":"Матч 42","date":"2025-12-23","opponent":"Динамо","expectedGoals":6.15,"realGoals":7},{"label":"Матч 43","date":"2025-12-26","opponent":"СКА","expectedGoals":5.53,"realGoals":1},{"label":"Матч 44","date":"2025-12-28","opponent":"Динамо","expectedGoals":3.36,"realGoals":5},{"label":"Матч 45","date":"2025-12-30","opponent":"Салават Юлаев","expectedGoals":1.8,"realGoals":3},{"label":"Матч 46","date":"2026-01-04","opponent":"Трактор","expectedGoals":3.32,"realGoals":4},{"label":"Матч 47","date":"2026-01-06","opponent":"ЦСКА","expectedGoals":2.9,"realGoals":2},{"label":"Матч 48","date":"2026-01-08","opponent":"Северсталь","expectedGoals":3.06,"realGoals":3},{"label":"Матч 49","date":"2026-01-12","opponent":"Адмирал","expectedGoals":4.35,"realGoals":2},{"label":"Матч 50","date":"2026-01-15","opponent":"Северсталь","expectedGoals":2.52,"realGoals":4},{"label":"Матч 51","date":"2026-01-17","opponent":"Динамо-Минск","expectedGoals":3.48,"realGoals":2},{"label":"Матч 52","date":"2026-01-19","opponent":"СКА","expectedGoals":2.57,"realGoals":4},{"label":"Матч 53","date":"2026-01-21","opponent":"Локомотив","expectedGoals":2.68,"realGoals":1},{"label":"Матч 54","date":"2026-01-24","opponent":"Шанхайские Драконы","expectedGoals":4.9,"realGoals":6},{"label":"Матч 55","date":"2026-01-26","opponent":"Салават Юлаев","expectedGoals":3.5,"realGoals":1},{"label":"Матч 56","date":"2026-01-29","opponent":"Сибирь","expectedGoals":3.42,"realGoals":1},{"label":"Матч 57","date":"2026-01-31","opponent":"Металлург Мг","expectedGoals":4.39,"realGoals":4},{"label":"Матч 58","date":"2026-02-03","opponent":"СКА","expectedGoals":3.21,"realGoals":3},{"label":"Матч 59","date":"2026-02-05","opponent":"Лада","expectedGoals":2.58,"realGoals":8},{"label":"Матч 60","date":"2026-02-10","opponent":"Северсталь","expectedGoals":4.17,"realGoals":7},{"label":"Матч 61","date":"2026-02-12","opponent":"Локомотив","expectedGoals":3.43,"realGoals":4},{"label":"Матч 62","date":"2026-02-15","opponent":"Спартак","expectedGoals":3.4,"realGoals":3},{"label":"Матч 63","date":"2026-02-18","opponent":"Спартак","expectedGoals":3.41,"realGoals":6},{"label":"Матч 64","date":"2026-02-21","opponent":"Локомотив","expectedGoals":2.57,"realGoals":4},{"label":"Матч 65","date":"2026-02-23","opponent":"Торпедо","expectedGoals":3.92,"realGoals":4},{"label":"Матч 66","date":"2026-02-25","opponent":"ХК Сочи","expectedGoals":4.87,"realGoals":7},{"label":"Матч 67","date":"2026-02-27","opponent":"ХК Сочи","expectedGoals":3.17,"realGoals":3},{"label":"Матч 68","date":"2026-03-03","opponent":"Металлург Мг","expectedGoals":4.91,"realGoals":0},{"label":"Матч 69","date":"2026-03-05","opponent":"СКА","expectedGoals":4.43,"realGoals":1},{"label":"Матч 70","date":"2026-03-09","opponent":"Динамо-Минск","expectedGoals":3.51,"realGoals":6},{"label":"Матч 71","date":"2026-03-11","opponent":"СКА","expectedGoals":2.41,"realGoals":3},{"label":"Матч 72","date":"2026-03-15","opponent":"Локомотив","expectedGoals":3.65,"realGoals":2},{"label":"Матч 73","date":"2026-03-17","opponent":"Авангард","expectedGoals":12,"realGoals":3},{"label":"Матч 74","date":"2026-03-20","opponent":"Автомобилист","expectedGoals":5.24,"realGoals":8},{"label":"Матч 75","date":"2026-03-24","opponent":"Динамо","expectedGoals":3.88,"realGoals":3},{"label":"Матч 76","date":"2026-03-26","opponent":"Динамо","expectedGoals":3.39,"realGoals":4},{"label":"Матч 77","date":"2026-03-28","opponent":"Динамо-Минск","expectedGoals":3.09,"realGoals":1},{"label":"Матч 78","date":"2026-03-30","opponent":"Динамо-Минск","expectedGoals":2.93,"realGoals":1},{"label":"Матч 79","date":"2026-04-09","opponent":"Ак Барс","expectedGoals":9.37,"realGoals":1},{"label":"Матч 80","date":"2026-04-11","opponent":"Ак Барс","expectedGoals":3.27,"realGoals":4},{"label":"Матч 81","date":"2026-04-13","opponent":"Ак Барс","expectedGoals":2.38,"realGoals":0},{"label":"Матч 82","date":"2026-04-15","opponent":"Ак Барс","expectedGoals":2.23,"realGoals":2}];
-    const modelReport = {"sampleSizes":{"rawMatches":84,"features":82,"train":65,"test":17},"classification":{"accuracy":0.4706,"logLoss":0.914,"confusionMatrix":[[0,9],[0,8]]},"goalsRegression":{"homeGoals":{"mae":2.681,"rmse":3.6601},"awayGoals":{"mae":0.959,"rmse":1.2615}},"artifacts":{"raw":"data/raw/matches.json","processed":"data/processed/features.json","correlationMatrix":"reports/correlation-matrix.json"}};
+    const dinamoExpectedVsReal = [{"label":"Матч 1","date":"2025-09-13","opponent":"Барыс","expectedGoals":3.8,"realGoals":3},{"label":"Матч 2","date":"2025-09-15","opponent":"Авангард","expectedGoals":3.58,"realGoals":4},{"label":"Матч 3","date":"2025-09-19","opponent":"СКА","expectedGoals":3.95,"realGoals":2},{"label":"Матч 4","date":"2025-09-22","opponent":"Барыс","expectedGoals":4.81,"realGoals":1},{"label":"Матч 5","date":"2025-09-24","opponent":"Торпедо","expectedGoals":4.62,"realGoals":3},{"label":"Матч 6","date":"2025-09-26","opponent":"Северсталь","expectedGoals":4.46,"realGoals":4},{"label":"Матч 7","date":"2025-09-29","opponent":"Локомотив","expectedGoals":4.41,"realGoals":3},{"label":"Матч 8","date":"2025-10-01","opponent":"Северсталь","expectedGoals":3.4,"realGoals":2},{"label":"Матч 9","date":"2025-10-06","opponent":"Трактор","expectedGoals":4.47,"realGoals":4},{"label":"Матч 10","date":"2025-10-09","opponent":"Шанхайские Драконы","expectedGoals":3.5,"realGoals":2},{"label":"Матч 11","date":"2025-10-11","opponent":"Шанхайские Драконы","expectedGoals":2.42,"realGoals":1},{"label":"Матч 12","date":"2025-10-14","opponent":"Торпедо","expectedGoals":3.95,"realGoals":7},{"label":"Матч 13","date":"2025-10-17","opponent":"Нефтехимик","expectedGoals":2.72,"realGoals":3},{"label":"Матч 14","date":"2025-10-20","opponent":"ЦСКА","expectedGoals":3.85,"realGoals":3},{"label":"Матч 15","date":"2025-10-22","opponent":"Лада","expectedGoals":4.31,"realGoals":4},{"label":"Матч 16","date":"2025-10-24","opponent":"Шанхайские Драконы","expectedGoals":3.23,"realGoals":2},{"label":"Матч 17","date":"2025-10-28","opponent":"ХК Сочи","expectedGoals":4.67,"realGoals":8},{"label":"Матч 18","date":"2025-10-30","opponent":"Амур","expectedGoals":4.78,"realGoals":6},{"label":"Матч 19","date":"2025-11-03","opponent":"ЦСКА","expectedGoals":2.54,"realGoals":2},{"label":"Матч 20","date":"2025-11-06","opponent":"Ак Барс","expectedGoals":4.41,"realGoals":4},{"label":"Матч 21","date":"2025-11-08","opponent":"Лада","expectedGoals":3.98,"realGoals":0},{"label":"Матч 22","date":"2025-11-10","opponent":"ХК Сочи","expectedGoals":3.43,"realGoals":5},{"label":"Матч 23","date":"2025-11-12","opponent":"Сибирь","expectedGoals":4.49,"realGoals":7},{"label":"Матч 24","date":"2025-11-16","opponent":"Ак Барс","expectedGoals":2.87,"realGoals":7},{"label":"Матч 25","date":"2025-11-18","opponent":"Северсталь","expectedGoals":2.78,"realGoals":2},{"label":"Матч 26","date":"2025-11-20","opponent":"ЦСКА","expectedGoals":3.43,"realGoals":5},{"label":"Матч 27","date":"2025-11-22","opponent":"Спартак","expectedGoals":5.27,"realGoals":6},{"label":"Матч 28","date":"2025-11-28","opponent":"Торпедо","expectedGoals":3.05,"realGoals":2},{"label":"Матч 29","date":"2025-11-30","opponent":"Адмирал","expectedGoals":3.3,"realGoals":4},{"label":"Матч 30","date":"2025-12-02","opponent":"Амур","expectedGoals":2.69,"realGoals":3},{"label":"Матч 31","date":"2025-12-16","opponent":"Локомотив","expectedGoals":3.06,"realGoals":2},{"label":"Матч 32","date":"2025-12-18","opponent":"Автомобилист","expectedGoals":3.47,"realGoals":2},{"label":"Матч 33","date":"2025-12-21","opponent":"Лада","expectedGoals":4.49,"realGoals":7},{"label":"Матч 34","date":"2025-12-23","opponent":"Динамо","expectedGoals":4.29,"realGoals":7},{"label":"Матч 35","date":"2025-12-26","opponent":"СКА","expectedGoals":3.2,"realGoals":1},{"label":"Матч 36","date":"2025-12-28","opponent":"Динамо","expectedGoals":3.43,"realGoals":5},{"label":"Матч 37","date":"2025-12-30","opponent":"Салават Юлаев","expectedGoals":3.32,"realGoals":3},{"label":"Матч 38","date":"2026-01-04","opponent":"Трактор","expectedGoals":3.31,"realGoals":4},{"label":"Матч 39","date":"2026-01-06","opponent":"ЦСКА","expectedGoals":3.17,"realGoals":2},{"label":"Матч 40","date":"2026-01-08","opponent":"Северсталь","expectedGoals":3.12,"realGoals":3},{"label":"Матч 41","date":"2026-01-12","opponent":"Адмирал","expectedGoals":4.43,"realGoals":2},{"label":"Матч 42","date":"2026-01-15","opponent":"Северсталь","expectedGoals":2.72,"realGoals":4},{"label":"Матч 43","date":"2026-01-17","opponent":"Динамо","expectedGoals":3.18,"realGoals":3},{"label":"Матч 44","date":"2026-01-19","opponent":"СКА","expectedGoals":2.67,"realGoals":4},{"label":"Матч 45","date":"2026-01-21","opponent":"Локомотив","expectedGoals":2.9,"realGoals":1},{"label":"Матч 46","date":"2026-01-24","opponent":"Шанхайские Драконы","expectedGoals":3.96,"realGoals":6},{"label":"Матч 47","date":"2026-01-26","opponent":"Салават Юлаев","expectedGoals":3.7,"realGoals":1},{"label":"Матч 48","date":"2026-01-29","opponent":"Сибирь","expectedGoals":3.41,"realGoals":1},{"label":"Матч 49","date":"2026-01-31","opponent":"Металлург Мг","expectedGoals":3.41,"realGoals":4},{"label":"Матч 50","date":"2026-02-03","opponent":"СКА","expectedGoals":3.57,"realGoals":3},{"label":"Матч 51","date":"2026-02-05","opponent":"Лада","expectedGoals":3.23,"realGoals":8},{"label":"Матч 52","date":"2026-02-10","opponent":"Северсталь","expectedGoals":3.63,"realGoals":7},{"label":"Матч 53","date":"2026-02-12","opponent":"Локомотив","expectedGoals":3.72,"realGoals":4},{"label":"Матч 54","date":"2026-02-15","opponent":"Спартак","expectedGoals":4.08,"realGoals":3},{"label":"Матч 55","date":"2026-02-18","opponent":"Спартак","expectedGoals":3.62,"realGoals":6},{"label":"Матч 56","date":"2026-02-21","opponent":"Локомотив","expectedGoals":3.26,"realGoals":4},{"label":"Матч 57","date":"2026-02-23","opponent":"Торпедо","expectedGoals":4.2,"realGoals":4},{"label":"Матч 58","date":"2026-02-25","opponent":"ХК Сочи","expectedGoals":4.18,"realGoals":7},{"label":"Матч 59","date":"2026-02-27","opponent":"ХК Сочи","expectedGoals":2.99,"realGoals":3},{"label":"Матч 60","date":"2026-03-03","opponent":"Металлург Мг","expectedGoals":2.92,"realGoals":0},{"label":"Матч 61","date":"2026-03-05","opponent":"СКА","expectedGoals":4.35,"realGoals":1},{"label":"Матч 62","date":"2026-03-09","opponent":"Динамо","expectedGoals":3.37,"realGoals":4},{"label":"Матч 63","date":"2026-03-11","opponent":"СКА","expectedGoals":2.84,"realGoals":3},{"label":"Матч 64","date":"2026-03-15","opponent":"Локомотив","expectedGoals":3.95,"realGoals":2},{"label":"Матч 65","date":"2026-03-17","opponent":"Авангард","expectedGoals":4.6,"realGoals":3},{"label":"Матч 66","date":"2026-03-20","opponent":"Автомобилист","expectedGoals":4.04,"realGoals":8}];
+    const modelReport = {"sampleSizes":{"rawMatches":68,"features":66,"folds":3,"walkForwardTestSamples":24},"classification":{"accuracy":0.5417,"logLoss":0.8692,"confusionMatrix":[[7,5],[6,6]]},"aggregationPolicy":{"pooled":{"description":"Metrics on concatenated predictions from all fold test windows","accuracy":0.5417,"logLoss":0.8692},"macro":{"description":"Unweighted mean of per-fold metrics","accuracy":0.5417,"logLoss":0.8692}},"walkForward":{"minTrain":30,"validation":10,"test":8,"folds":[{"train":30,"validation":10,"test":8,"selectedFeatures":["isHome","attackDiff","goalsForAvgHome","eloDiff","opponentStrength","rollingGoalDiffDelta","venueFormDelta"],"selectedFeatureCount":7,"featureTargetCorrelations":{"isHome":0.3563,"attackDiff":0.2021,"goalsForAvgHome":0.1996,"eloDiff":0.1385,"opponentStrength":-0.2081,"rollingGoalDiffDelta":0.1397,"venueFormDelta":0.2385},"plattA":2.0517,"plattB":-2.8282,"ensembleWeightLogistic":1,"threshold":0.54,"accuracy":0.5,"logLoss":1.0978},{"train":38,"validation":10,"test":8,"selectedFeatures":["isHome","restDiff","attackDiff","goalsForAvgHome","goalsAgainstAvgHome","opponentStrength","rollingGoalDiffDelta","venueFormDelta","winStreakDelta"],"selectedFeatureCount":9,"featureTargetCorrelations":{"isHome":0.3962,"restDiff":0.2951,"attackDiff":0.2072,"goalsForAvgHome":0.0847,"goalsAgainstAvgHome":0.0848,"opponentStrength":-0.2026,"rollingGoalDiffDelta":0.0879,"venueFormDelta":0.1165,"winStreakDelta":-0.0914},"plattA":0.3196,"plattB":-0.2719,"ensembleWeightLogistic":1,"threshold":0.46,"accuracy":0.625,"logLoss":0.6186},{"train":46,"validation":10,"test":8,"selectedFeatures":["isHome","restDiff","attackDiff","goalsForAvgHome","eloDiff","opponentStrength","rollingGoalDiffDelta","venueFormDelta"],"selectedFeatureCount":8,"featureTargetCorrelations":{"isHome":0.439,"restDiff":0.2356,"attackDiff":0.2668,"goalsForAvgHome":0.0702,"eloDiff":-0.0754,"opponentStrength":-0.2331,"rollingGoalDiffDelta":0.1468,"venueFormDelta":0.2954},"plattA":0.6783,"plattB":-0.6931,"ensembleWeightLogistic":1,"threshold":0.52,"accuracy":0.5,"logLoss":0.8913}]},"modelingDetails":{"targetVariable":"homeWin (1 = Dinamo Minsk win, 0 = Dinamo Minsk loss)","calibrationInput":"Raw logistic decision score s = beta0 + beta'x (Platt uses sigmoid(a*s + b))","ensemble":"p = w * p_logistic_calibrated + (1 - w) * p_poisson","poissonWinProbability":"p_poisson = sum_{hg>ag} Pois(hg; lambda_home) * Pois(ag; lambda_away), hg/ag in [0..10]","featureSelectionRule":"1) prefilter by |corr(feature, target)| on train; 2) drop collinear pairs |corr|>=0.85; 3) validation refinement","logisticFeaturePool":["isHome","restDiff","formDiff","attackDiff","defenseDiff","goalsForAvgHome","goalsAgainstAvgHome","goalsForAvgAway","goalsAgainstAvgAway","eloDiff","opponentStrength","rollingGoalDiffDelta","venueFormDelta","winStreakDelta"],"featureSelectionFrequency":{"isHome":3,"attackDiff":3,"goalsForAvgHome":3,"opponentStrength":3,"rollingGoalDiffDelta":3,"venueFormDelta":3,"eloDiff":2,"restDiff":2,"goalsAgainstAvgHome":1,"winStreakDelta":1},"finalSelectedFeatures":["isHome","attackDiff","goalsForAvgHome","opponentStrength","rollingGoalDiffDelta","venueFormDelta","eloDiff","restDiff"]},"goalsRegression":{"homeGoals":{"mae":2.3201,"rmse":2.8976},"awayGoals":{"mae":1.5584,"rmse":2.0993}},"artifacts":{"raw":"data/raw/matches.json","processed":"data/processed/features.json","correlationMatrix":"reports/correlation-matrix.json"}};
 
     const statItems = dinamoStandings
       ? [
@@ -136,14 +160,14 @@
       paper_bgcolor: "#111827",
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
-      xaxis: { automargin: true, tickangle: -25, tickfont: { size: 12 } },
-      yaxis: { automargin: true, tickfont: { size: 13 } },
-      margin: { l: 480, r: 420, t: 20, b: 120 }
+      xaxis: { automargin: true, tickangle: -25, tickfont: { size: 11 } },
+      yaxis: { automargin: true, tickfont: { size: 11 } },
+      margin: { l: 280, r: 20, t: 20, b: 170 }
     });
 
     Plotly.newPlot("goalsDist", [
-      { x: homeGoals, type: "histogram", name: "Голы хозяев", opacity: 0.7 },
-      { x: awayGoals, type: "histogram", name: "Голы гостей", opacity: 0.7 }
+      { x: homeGoals, type: "histogram", name: "Голы Динамо Минск", opacity: 0.7 },
+      { x: awayGoals, type: "histogram", name: "Голы соперников", opacity: 0.7 }
     ], {
       barmode: "overlay",
       paper_bgcolor: "#111827",
@@ -209,21 +233,26 @@
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
       xaxis: { title: "Матчи Динамо Минск", tickangle: -90 },
-      yaxis: { title: "Количество голов" },
-      margin: { l: 60, r: 20, t: 20, b: 190 }
+      yaxis: { title: "Голы Динамо Минск" },
+      margin: { l: 60, r: 20, t: 20, b: 200 }
     });
 
     const classification = modelReport.classification || {};
+    const aggregationPolicy = modelReport.aggregationPolicy || {};
+    const pooled = aggregationPolicy.pooled || {};
+    const macro = aggregationPolicy.macro || {};
     const goalsRegression = modelReport.goalsRegression || {};
     const homeGoalsMetrics = goalsRegression.homeGoals || {};
     const awayGoalsMetrics = goalsRegression.awayGoals || {};
 
     const metricsTableHtml = [
-      '<table>',
+      '<table class="report-table">',
       '<thead><tr><th>Модель</th><th>Метрика</th><th>Значение</th></tr></thead>',
       '<tbody>',
       '<tr><td>Логистическая</td><td>Accuracy</td><td>' + (classification.accuracy ?? "-") + '</td></tr>',
       '<tr><td>Логистическая</td><td>LogLoss</td><td>' + (classification.logLoss ?? "-") + '</td></tr>',
+      '<tr><td>Агрегация pooled</td><td>Accuracy / LogLoss</td><td>' + (pooled.accuracy ?? "-") + ' / ' + (pooled.logLoss ?? "-") + '</td></tr>',
+      '<tr><td>Агрегация macro</td><td>Accuracy / LogLoss</td><td>' + (macro.accuracy ?? "-") + ' / ' + (macro.logLoss ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы хозяев)</td><td>MAE</td><td>' + (homeGoalsMetrics.mae ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы хозяев)</td><td>RMSE</td><td>' + (homeGoalsMetrics.rmse ?? "-") + '</td></tr>',
       '<tr><td>Пуассон (голы гостей)</td><td>MAE</td><td>' + (awayGoalsMetrics.mae ?? "-") + '</td></tr>',
@@ -232,6 +261,52 @@
       '</table>'
     ].join("");
     document.getElementById("metricsTable").innerHTML = metricsTableHtml;
+
+    const walkForward = modelReport.walkForward || {};
+    const folds = walkForward.folds || [];
+    const walkForwardHtml = folds.length
+      ? [
+          '<table class="report-table">',
+          '<thead><tr><th>#</th><th>Train/Val/Test</th><th>Выбранные признаки</th><th>Corr(feature,target)</th><th>w_logistic</th><th>Platt (a,b)</th><th>Threshold</th><th>Accuracy</th><th>LogLoss</th></tr></thead>',
+          '<tbody>',
+          ...folds.map((f, idx) =>
+            '<tr><td>' + (idx + 1) + '</td><td>' + f.train + '/' + f.validation + '/' + f.test + '</td><td>' + ((f.selectedFeatures || []).join(", ") || "-") + '</td><td>' + Object.entries(f.featureTargetCorrelations || {}).map(([k, v]) => k + ": " + v).join("<br/>") + '</td><td>' + (f.ensembleWeightLogistic ?? "-") + '</td><td>(' + (f.plattA ?? "-") + ', ' + (f.plattB ?? "-") + ')</td><td>' + (f.threshold ?? "-") + '</td><td>' + (f.accuracy ?? "-") + '</td><td>' + (f.logLoss ?? "-") + '</td></tr>'
+          ),
+          '</tbody></table>'
+        ].join("")
+      : '<div class="small">Данные walk-forward отсутствуют.</div>';
+    document.getElementById("walkForwardTable").innerHTML = walkForwardHtml;
+
+    const details = modelReport.modelingDetails || {};
+    const freq = details.featureSelectionFrequency || {};
+    const freqRows = Object.entries(freq)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([name, cnt]) => '<tr><td>' + name + '</td><td>' + cnt + '</td></tr>')
+      .join("");
+    const modelingHtml = [
+      '<div class="formula"><div><b>Формула ансамбля:</b></div><code>' + (details.ensemble || "-") + '</code></div>',
+      '<div class="formula"><div><b>Вероятность победы из Пуассона:</b></div><code>' + (details.poissonWinProbability || "-") + '</code></div>',
+      '<div class="formula"><div><b>Целевая переменная:</b></div><code>' + (details.targetVariable || "-") + '</code></div>',
+      '<div class="formula"><div><b>Вход в Platt-калибратор:</b></div><code>' + (details.calibrationInput || "-") + '</code></div>',
+      '<div class="formula"><div><b>Правило отбора признаков:</b></div><code>' + (details.featureSelectionRule || "-") + '</code></div>',
+      '<div class="formula"><div><b>Итоговые признаки модели:</b></div><code>' + ((details.finalSelectedFeatures || []).join(", ") || "-") + '</code></div>',
+      '<div class="small">Частота выбора признаков по фолдам (авто feature selection):</div>',
+      '<table class="report-table"><thead><tr><th>Признак</th><th>Выбран в фолдах</th></tr></thead><tbody>' + (freqRows || '<tr><td colspan="2">Нет данных</td></tr>') + '</tbody></table>'
+    ].join("");
+    document.getElementById("modelingInfo").innerHTML = modelingHtml;
+
+    const matchesRows = dinamoExpectedVsReal.length
+      ? dinamoExpectedVsReal.map((m) => '<tr><td>' + m.date + '</td><td>' + m.opponent + '</td><td>' + m.realGoals + '</td><td>' + m.expectedGoals + '</td></tr>')
+      : dinamoTimeline.labels.map((label, idx) => '<tr><td>' + label + '</td><td>-</td><td>' + (dinamoTimeline.goalsFor[idx] ?? "-") + '</td><td>-</td></tr>');
+    const matchesTableHtml = [
+      '<table class="report-table">',
+      '<thead><tr><th>Дата/матч</th><th>Соперник</th><th>Реальные голы Динамо</th><th>Ожидаемые голы Динамо</th></tr></thead>',
+      '<tbody>',
+      ...matchesRows,
+      '</tbody>',
+      '</table>'
+    ].join("");
+    document.getElementById("matchesTable").innerHTML = matchesTableHtml;
   </script>
 </body>
 </html>

@@ -1,32 +1,192 @@
 {
   "sampleSizes": {
-    "rawMatches": 84,
-    "features": 82,
-    "train": 65,
-    "test": 17
+    "rawMatches": 68,
+    "features": 66,
+    "folds": 3,
+    "walkForwardTestSamples": 24
   },
   "classification": {
-    "accuracy": 0.4706,
-    "logLoss": 0.914,
+    "accuracy": 0.5417,
+    "logLoss": 0.8692,
     "confusionMatrix": [
       [
-        0,
-        9
+        7,
+        5
       ],
       [
-        0,
-        8
+        6,
+        6
       ]
+    ]
+  },
+  "aggregationPolicy": {
+    "pooled": {
+      "description": "Metrics on concatenated predictions from all fold test windows",
+      "accuracy": 0.5417,
+      "logLoss": 0.8692
+    },
+    "macro": {
+      "description": "Unweighted mean of per-fold metrics",
+      "accuracy": 0.5417,
+      "logLoss": 0.8692
+    }
+  },
+  "walkForward": {
+    "minTrain": 30,
+    "validation": 10,
+    "test": 8,
+    "folds": [
+      {
+        "train": 30,
+        "validation": 10,
+        "test": 8,
+        "selectedFeatures": [
+          "isHome",
+          "attackDiff",
+          "goalsForAvgHome",
+          "eloDiff",
+          "opponentStrength",
+          "rollingGoalDiffDelta",
+          "venueFormDelta"
+        ],
+        "selectedFeatureCount": 7,
+        "featureTargetCorrelations": {
+          "isHome": 0.3563,
+          "attackDiff": 0.2021,
+          "goalsForAvgHome": 0.1996,
+          "eloDiff": 0.1385,
+          "opponentStrength": -0.2081,
+          "rollingGoalDiffDelta": 0.1397,
+          "venueFormDelta": 0.2385
+        },
+        "plattA": 2.0517,
+        "plattB": -2.8282,
+        "ensembleWeightLogistic": 1,
+        "threshold": 0.54,
+        "accuracy": 0.5,
+        "logLoss": 1.0978
+      },
+      {
+        "train": 38,
+        "validation": 10,
+        "test": 8,
+        "selectedFeatures": [
+          "isHome",
+          "restDiff",
+          "attackDiff",
+          "goalsForAvgHome",
+          "goalsAgainstAvgHome",
+          "opponentStrength",
+          "rollingGoalDiffDelta",
+          "venueFormDelta",
+          "winStreakDelta"
+        ],
+        "selectedFeatureCount": 9,
+        "featureTargetCorrelations": {
+          "isHome": 0.3962,
+          "restDiff": 0.2951,
+          "attackDiff": 0.2072,
+          "goalsForAvgHome": 0.0847,
+          "goalsAgainstAvgHome": 0.0848,
+          "opponentStrength": -0.2026,
+          "rollingGoalDiffDelta": 0.0879,
+          "venueFormDelta": 0.1165,
+          "winStreakDelta": -0.0914
+        },
+        "plattA": 0.3196,
+        "plattB": -0.2719,
+        "ensembleWeightLogistic": 1,
+        "threshold": 0.46,
+        "accuracy": 0.625,
+        "logLoss": 0.6186
+      },
+      {
+        "train": 46,
+        "validation": 10,
+        "test": 8,
+        "selectedFeatures": [
+          "isHome",
+          "restDiff",
+          "attackDiff",
+          "goalsForAvgHome",
+          "eloDiff",
+          "opponentStrength",
+          "rollingGoalDiffDelta",
+          "venueFormDelta"
+        ],
+        "selectedFeatureCount": 8,
+        "featureTargetCorrelations": {
+          "isHome": 0.439,
+          "restDiff": 0.2356,
+          "attackDiff": 0.2668,
+          "goalsForAvgHome": 0.0702,
+          "eloDiff": -0.0754,
+          "opponentStrength": -0.2331,
+          "rollingGoalDiffDelta": 0.1468,
+          "venueFormDelta": 0.2954
+        },
+        "plattA": 0.6783,
+        "plattB": -0.6931,
+        "ensembleWeightLogistic": 1,
+        "threshold": 0.52,
+        "accuracy": 0.5,
+        "logLoss": 0.8913
+      }
+    ]
+  },
+  "modelingDetails": {
+    "targetVariable": "homeWin (1 = Dinamo Minsk win, 0 = Dinamo Minsk loss)",
+    "calibrationInput": "Raw logistic decision score s = beta0 + beta'x (Platt uses sigmoid(a*s + b))",
+    "ensemble": "p = w * p_logistic_calibrated + (1 - w) * p_poisson",
+    "poissonWinProbability": "p_poisson = sum_{hg>ag} Pois(hg; lambda_home) * Pois(ag; lambda_away), hg/ag in [0..10]",
+    "featureSelectionRule": "1) prefilter by |corr(feature, target)| on train; 2) drop collinear pairs |corr|>=0.85; 3) validation refinement",
+    "logisticFeaturePool": [
+      "isHome",
+      "restDiff",
+      "formDiff",
+      "attackDiff",
+      "defenseDiff",
+      "goalsForAvgHome",
+      "goalsAgainstAvgHome",
+      "goalsForAvgAway",
+      "goalsAgainstAvgAway",
+      "eloDiff",
+      "opponentStrength",
+      "rollingGoalDiffDelta",
+      "venueFormDelta",
+      "winStreakDelta"
+    ],
+    "featureSelectionFrequency": {
+      "isHome": 3,
+      "attackDiff": 3,
+      "goalsForAvgHome": 3,
+      "opponentStrength": 3,
+      "rollingGoalDiffDelta": 3,
+      "venueFormDelta": 3,
+      "eloDiff": 2,
+      "restDiff": 2,
+      "goalsAgainstAvgHome": 1,
+      "winStreakDelta": 1
+    },
+    "finalSelectedFeatures": [
+      "isHome",
+      "attackDiff",
+      "goalsForAvgHome",
+      "opponentStrength",
+      "rollingGoalDiffDelta",
+      "venueFormDelta",
+      "eloDiff",
+      "restDiff"
     ]
   },
   "goalsRegression": {
     "homeGoals": {
-      "mae": 2.681,
-      "rmse": 3.6601
+      "mae": 2.3201,
+      "rmse": 2.8976
     },
     "awayGoals": {
-      "mae": 0.959,
-      "rmse": 1.2615
+      "mae": 1.5584,
+      "rmse": 2.0993
     }
   },
   "artifacts": {

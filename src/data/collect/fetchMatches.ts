@@ -8,6 +8,7 @@ const SOURCE_URL = "https://hcdinamo.by/matches/";
 const STANDINGS_URL = "https://hcdinamo.by/matches/standings/";
 const DINAMO_TEAM = "Динамо-Минск";
 const MAX_MONTH_TOKENS = 18;
+const DINAMO_ALIASES = ["Динамо Мн", "Динамо-Минск", "Динамо Минск", "Dinamo Minsk"];
 
 interface DataSourceMeta {
   sourceUrl: string;
@@ -220,15 +221,29 @@ export async function collectRawMatches(): Promise<RawMatchRecord[]> {
     throw new Error("Official matches list returned too few finished games for analysis.");
   }
 
-  await writeJson(RAW_DATA_PATH, scraped);
+  const dinamoStanding = standings.find((row) => DINAMO_ALIASES.some((alias) => row.team.includes(alias)));
+  let filtered = scraped;
+  let filterReason = "all finished matches from list view";
+  if (dinamoStanding && dinamoStanding.games > 0) {
+    // Standings games count is regular season only. Filter out preseason/playoff by season start and game count.
+    const firstYear = Number(scraped[0]?.date.slice(0, 4)) || new Date().getFullYear();
+    const seasonStart = `${firstYear.toString().padStart(4, "0")}-09-01`;
+    const fromSeasonStart = scraped.filter((row) => row.date >= seasonStart);
+    if (fromSeasonStart.length >= dinamoStanding.games) {
+      filtered = fromSeasonStart.slice(0, dinamoStanding.games);
+      filterReason = `regular season only (${dinamoStanding.games} games by standings, from ${seasonStart})`;
+    }
+  }
+
+  await writeJson(RAW_DATA_PATH, filtered);
   const meta: DataSourceMeta = {
     sourceUrl: SOURCE_URL,
     mode: "scraped",
-    records: scraped.length,
-    reason: `real match results from official list view, crawled month tokens: ${visitedTokens.size}`
+    records: filtered.length,
+    reason: `real match results from official list view, crawled month tokens: ${visitedTokens.size}; filter: ${filterReason}`
   };
   await writeJson(DATA_SOURCE_META_PATH, meta);
-  return scraped;
+  return filtered;
 }
 
 if (require.main === module) {
