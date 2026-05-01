@@ -13,10 +13,10 @@
     .wide { grid-column: span 2; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .stat-box { background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
-    .stat-label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
-    .stat-value { font-size: 22px; font-weight: 700; color: #f8fafc; }
+    .stat-label { font-size: 16px; color: #94a3b8; margin-bottom: 6px; }
+    .stat-value { font-size: 24px; font-weight: 700; color: #f8fafc; }
     .formula { margin: 8px 0; background: #0b1220; border: 1px solid #243042; border-radius: 8px; padding: 10px; }
-    .formula code { color: #e2e8f0; font-size: 14px; }
+    .formula code { color: #e2e8f0; font-size: 18px; }
     #metricsTable table { width: 100%; border-collapse: collapse; }
     #metricsTable th, #metricsTable td { border: 1px solid #243042; padding: 8px; text-align: left; }
     #metricsTable th { background: #0b1220; }
@@ -136,9 +136,9 @@
       paper_bgcolor: "#111827",
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
-      xaxis: { automargin: true, tickangle: -25, tickfont: { size: 11 } },
-      yaxis: { automargin: true, tickfont: { size: 11 } },
-      margin: { l: 280, r: 20, t: 20, b: 170 }
+      xaxis: { automargin: true, tickangle: -25, tickfont: { size: 12 } },
+      yaxis: { automargin: true, tickfont: { size: 13 } },
+      margin: { l: 480, r: 420, t: 20, b: 120 }
     });
 
     Plotly.newPlot("goalsDist", [
@@ -208,9 +208,9 @@
       paper_bgcolor: "#111827",
       plot_bgcolor: "#111827",
       font: { color: "#e2e8f0" },
-      xaxis: { title: "Матчи Динамо Минск", tickangle: -20 },
+      xaxis: { title: "Матчи Динамо Минск", tickangle: -90 },
       yaxis: { title: "Количество голов" },
-      margin: { l: 60, r: 20, t: 20, b: 70 }
+      margin: { l: 60, r: 20, t: 20, b: 190 }
     });
 
     const classification = modelReport.classification || {};
